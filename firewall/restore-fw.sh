@@ -2,7 +2,7 @@
 
 source vars.sh
 
-echo "Restoring iptables firewall from /root/firewall/rules ..."
+echo "Restoring iptables firewall from ${SAVE_RULES_FILE} ..."
 
 iptables-restore < ${SAVE_RULES_FILE} 
 
