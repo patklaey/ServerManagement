@@ -19,6 +19,11 @@ rsync --verbose --archive -h /home/html /mnt/backup/home/
 echo -e "\nSaving pictures..."
 rsync --verbose --archive -h /home/pat/Pictures /mnt/backup/home/pat/
 
+# Write the server image
+echo -e "\nSaving server image..."
+time dd if=/dev/mmcblk0 of=/mnt/backup/server.img
+sync
+
 # As infortmaion show filesystem usage stats
 echo -e "\n"
 df -h
