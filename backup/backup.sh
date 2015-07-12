@@ -7,6 +7,15 @@ date
 # Mount the backup disk
 mount --rw /dev/sdb1 /mnt/backup
 
+mountExitCode=$?
+
+if [[ ${mountExitCode} -ne 0 ]]; then
+    echo "Mounting /dev/sdb1 failed: ${mountExitCode} stopping here"
+    echo -e "\nBackup finished with errors"
+    echo "################################################################################"
+    exit 1;
+fi
+
 # Save the webdav directory
 echo -e "\nSaving webdav directory..."
 rsync --verbose --archive -h /home/webdav /mnt/backup/home/
