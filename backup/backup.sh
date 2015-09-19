@@ -28,6 +28,10 @@ rsync --verbose --archive -h /home/html /mnt/backup/home/
 echo -e "\nSaving pictures..."
 rsync --verbose --archive -h /home/pat/Pictures /mnt/backup/home/pat/
 
+# Save blog database
+echo -e "\nSaving blog database..."
+mysqldump -u root -p<password> --opt --quote-names --skip-set-charset --default-character-set=latin1 wordpress > /mnt/backup/wordpress-utf.sql
+
 # Save blog media
 echo -e "\nSaving blog media..."
 rsync --verbose --archive -h /home/blog-uploads /mnt/backup/home/
