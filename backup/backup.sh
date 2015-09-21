@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source vars.sh
+
 echo "################################################################################"
 echo "Starting backup"
 date
@@ -30,7 +32,7 @@ rsync --verbose --archive -h /home/pat/Pictures /mnt/backup/home/pat/
 
 # Save blog database
 echo -e "\nSaving blog database..."
-mysqldump -u root -p<password> --opt --quote-names --skip-set-charset --default-character-set=latin1 wordpress > /mnt/backup/wordpress-utf.sql
+mysqldump -u ${WORDPRESS_DB_USER} -p${WORDPRESS_DB_PASSWORD} --opt --quote-names --skip-set-charset --default-character-set=latin1 ${WORDPRESS_DATABASE} > /mnt/backup/wordpress-utf.sql
 
 # Save blog media
 echo -e "\nSaving blog media..."
