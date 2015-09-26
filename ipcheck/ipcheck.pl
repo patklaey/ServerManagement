@@ -37,6 +37,7 @@ my $cfg = Config::IniFiles->new ( -file => $opts{'config'} );
 # Read the configuration
 my $logfile = $cfg->val("General","Logfile");
 my $old_ip_file = $cfg->val("General","OldIpFile");
+my $mail_address = $cfg->val("Mail","To");
 
 # Open the logfile
 unless ( open( LOG, ">>$logfile" ) )
@@ -80,7 +81,7 @@ if ( -e $old_ip_file )
     if ( $old_ip ne $current_ip )
     {
         # Send the mail
-        system("echo 'Dear admin, The public IP of our home changed from $old_ip to $current_ip. Please update the bind configuration and switchplus nameserver in order to have a functional DNS. Cheers your ip-check script' | mutt -s 'Our Public IP changed to $current_ip' -- pat.klaey\@unifr.ch");
+        system("echo 'Dear admin, The public IP of our home changed from $old_ip to $current_ip. Please update the bind configuration and switchplus nameserver in order to have a functional DNS. Cheers your ip-check script' | mutt -s 'Our Public IP changed to $current_ip' -- $mail_address");
         open( NEW, ">$old_ip_file" );
 	print NEW $current_ip;
         close NEW;
