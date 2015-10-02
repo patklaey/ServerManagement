@@ -2,6 +2,7 @@
 
 script_dir=`dirname $0`
 source ${script_dir}/vars.sh
+source vars.sh
 
 echo "################################################################################"
 echo "Starting backup"
@@ -30,6 +31,10 @@ rsync --verbose --archive -h /home/html /mnt/backup/home/
 # Save all pictures
 echo -e "\nSaving pictures..."
 rsync --verbose --archive -h /home/pat/Pictures /mnt/backup/home/pat/
+
+# Save wiki database
+echo -e "\nSaving wiki database..."
+mysqldump -u ${WIKI_DB_USER} -p${WIKI_DB_PASSWORD} --opt --quote-names --skip-set-charset --default-character-set=latin1 ${WIKI_DATABASE} > /mnt/backup/wiki-utf.sql
 
 # Save blog database
 echo -e "\nSaving blog database..."
