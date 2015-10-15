@@ -29,7 +29,7 @@ rsync --verbose --archive -h /home/owncloud /mnt/backup/home/
 
 # Save wiki database
 echo -e "\nSaving owncloud database..."
-mysqldump -u ${OWNCLOUD_DB_USER} -p${OWNCLOUD_DB_PASSWORD} --opt --quote-names --skip-set-charset --default-character-set=latin1 ${OWNCLOUD_DATABASE} > /mnt/backup/wiki-utf.sql
+mysqldump -u ${OWNCLOUD_DB_USER} -p${OWNCLOUD_DB_PASSWORD} --opt --quote-names --skip-set-charset --default-character-set=latin1 ${OWNCLOUD_DATABASE} > /mnt/backup/owncloud-utf.sql
 
 # Save the html directory
 echo -e "\nSaving html directory..."
