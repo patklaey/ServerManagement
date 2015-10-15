@@ -29,7 +29,7 @@ rsync --verbose --archive -h /home/owncloud /mnt/backup/home/
 
 # Save wiki database
 echo -e "\nSaving owncloud database..."
-mysqldump -u ${OWNCLOUD_DB_USER} -p'${OWNCLOUD_DB_PASSWORD}' --opt --quote-names --skip-set-charset --default-character-set=latin1 ${OWNCLOUD_DATABASE} > /mnt/backup/owncloud-utf.sql
+mysqldump -u ${OWNCLOUD_DB_USER} -p"${OWNCLOUD_DB_PASSWORD}" --opt --quote-names --skip-set-charset --default-character-set=latin1 ${OWNCLOUD_DATABASE} > /mnt/backup/owncloud-utf.sql
 
 # Save the html directory
 echo -e "\nSaving html directory..."
@@ -41,11 +41,11 @@ rsync --verbose --archive -h /home/pat/Pictures /mnt/backup/home/pat/
 
 # Save wiki database
 echo -e "\nSaving wiki database..."
-mysqldump -u ${WIKI_DB_USER} -p'${WIKI_DB_PASSWORD}' --opt --quote-names --skip-set-charset --default-character-set=latin1 ${WIKI_DATABASE} > /mnt/backup/wiki-utf.sql
+mysqldump -u ${WIKI_DB_USER} -p"${WIKI_DB_PASSWORD}" --opt --quote-names --skip-set-charset --default-character-set=latin1 ${WIKI_DATABASE} > /mnt/backup/wiki-utf.sql
 
 # Save blog database
 echo -e "\nSaving blog database..."
-mysqldump -u ${WORDPRESS_DB_USER} -p'${WORDPRESS_DB_PASSWORD}' --opt --quote-names --skip-set-charset --default-character-set=latin1 ${WORDPRESS_DATABASE} > /mnt/backup/wordpress-utf.sql
+mysqldump -u ${WORDPRESS_DB_USER} -p"${WORDPRESS_DB_PASSWORD}" --opt --quote-names --skip-set-charset --default-character-set=latin1 ${WORDPRESS_DATABASE} > /mnt/backup/wordpress-utf.sql
 
 # Save blog media
 echo -e "\nSaving blog media..."
