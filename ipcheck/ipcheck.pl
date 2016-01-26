@@ -86,7 +86,7 @@ if ( -e $old_ip_file )
 	print NEW $current_ip;
         close NEW;
         print LOG "$date : IP changed from $old_ip to $current_ip. Mail sent";
-        print LOG " to the administrator\n";
+        print LOG " to the administrator ($mail_address)\n";
     } else
     {
         print LOG "$date : Ipcheck successful, still the same ip: $current_ip";
