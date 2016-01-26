@@ -51,6 +51,14 @@ mysqldump -u ${WORDPRESS_DB_USER} -p"${WORDPRESS_DB_PASSWORD}" --opt --quote-nam
 echo -e "\nSaving blog media..."
 rsync --verbose --archive -h /home/blog-uploads /mnt/backup/home/
 
+# Save config data
+echo -e "\nSaving /etc..."
+rsync --verbose --archive -h /etc /mnt/backup/config/
+
+# Save webapps
+echo -e "\nSaving webapps..."
+rsync --verbose --archive -h /var/www /mnt/backup/config/
+
 # Write the server image
 echo -e "\nSaving server image..."
 time dd if=/dev/mmcblk0 of=/mnt/backup/server.img
