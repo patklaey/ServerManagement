@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-package PerlUtil::Mail;
+package Mail;
 
 use strict;
 use warnings;
