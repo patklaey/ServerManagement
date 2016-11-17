@@ -19,6 +19,9 @@ if [[ ${mountExitCode} -ne 0 ]]; then
     exit 1;
 fi
 
+# Create DB backup directory if it does not exist
+mkdir -p /root/db_backup
+
 # Save the webdav directory
 echo -e "\nSaving webdav directory..."
 rsync --verbose --archive -h /home/webdav /mnt/backup/home/
