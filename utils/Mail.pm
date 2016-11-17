@@ -36,12 +36,14 @@ sub new
     $self->{error} = undef;
     $self->{error_code} = 0;
     
-    # Host, port, user and password
+    # Set up
     $self->{host} = $parameters{host} || undef;
     $self->{port} = $parameters{port} || DEFAULT_PORT;
     $self->{user} = $parameters{user} || undef;
     $self->{password} = $parameters{password} || undef;
- 
+    $self->{to} = $parameters{to} || [];
+    $self->{from} = $parameters{from} || undef;
+
     # Check if host is defined
     unless ( $self->{host} )
     {
@@ -65,10 +67,6 @@ sub new
     
     # Assing the mailer
     $self->{mailer} = $mailer;
-    
-    # To, From etc
-    $self->{to} = [];
-    $self->{from} = undef;
                                     
     bless( $self, $class );
     return $self;
