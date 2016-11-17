@@ -27,8 +27,8 @@ echo -e "\nSaving webdav directory..."
 rsync --verbose --archive -h /home/webdav /mnt/backup/home/
 
 # Save the owncloud directory
-echo -e "\nSaving owncloud directory..."
-rsync --verbose --archive -h /home/owncloud /mnt/backup/home/
+#echo -e "\nSaving owncloud directory..."
+#rsync --verbose --archive -h /home/owncloud /mnt/backup/home/
 
 # Save wiki database
 echo -e "\nSaving owncloud database..."
