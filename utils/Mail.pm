@@ -7,6 +7,7 @@ use warnings;
 
 use Net::SMTPS;
 use POSIX;
+use Config::IniFiles;
 
 
 use constant
@@ -22,6 +23,8 @@ use constant
     CANNOT_SEND_MAIL => 3,
     NO_RECIPIENT_SET => 4,
     NO_SENDER_SET => 5,
+
+    DEFAULT_CONFIG => "./mail.conf"
     
 };
 
@@ -37,18 +40,18 @@ sub new
     $self->{error_code} = 0;
     
     # Set up
-    $self->{host} = $parameters{host} || undef;
-    $self->{port} = $parameters{port} || DEFAULT_PORT;
-    $self->{user} = $parameters{user} || undef;
-    $self->{password} = $parameters{password} || undef;
-    $self->{to} = $parameters{to} || [];
-    $self->{from} = $parameters{from} || undef;
+    $self->{host} = getField("host", %parameters);
+    $self->{port} = getField("port", %parameters);
+    $self->{user} = getField("user", %parameters);
+    $self->{password} = getField("password", %parameters);
+    $self->{to} = getField("to", %parameters);
+    $self->{from} = getField("from", %parameters);
 
     # Check if host is defined
-    unless ( $self->{host} )
+    unless ( $self->{host} || $self->{host} )
     {
-        $self->{error} = "No mail host defined, cannot create mail object "
-                        ."without mail host";
+        $self->{error} = "No mail host or port defined, cannot create mail "
+                        ."object without mail host";
         $self->{error_code} = NO_HOST;
         bless( $self, $class );
         return $self;
@@ -72,6 +75,30 @@ sub new
     return $self;
 }
 
+sub getField
+{
+    my ($fieldName, %parameters) = @_;
+
+    return $parameters{$fieldName} if ($parameters{$fieldName});
+
+    if ($parameters{config})
+    {
+        my $config = Config::IniFiles->new ( -file => $parameters{config} );
+        if ( $config->exists("General",$fieldName) )
+        {
+            return $config->val("General",$fieldName);
+        }
+    }
+
+    my $default_conf = Config::IniFiles->new ( -file => DEFAULT_CONFIG );
+    if ( $default_conf->exists("General",$fieldName) )
+    {
+        return $default_conf->val("General",$fieldName);
+    }
+
+    return undef;
+}
+
 sub error
 {
     my $self = shift;
@@ -89,7 +116,7 @@ sub send
     my $message = shift;
     
     # Test if at least one receipient is set
-    unless ( $self->getTo() > 0 )
+    unless ( defined($self->getTo()) || $self->getTo() > 0 )
     {
         $self->{error} = "No recipient set. Please set at least one recipient "
                         ."using \$mail->setTo( \@to )";
@@ -97,7 +124,7 @@ sub send
     }
     
     # Check if sender is set
-    unless ( $self->getFrom() )
+    unless ( defined($self->getFrom()) || $self->getFrom() )
     {
         $self->{error} = "No sender set. Please set at least one sender using "
                         ."\$mail->setFrom( \$from_address )";
