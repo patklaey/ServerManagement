@@ -24,7 +24,7 @@ use constant
     NO_RECIPIENT_SET => 4,
     NO_SENDER_SET => 5,
 
-    DEFAULT_CONFIG => "./mail.conf"
+    DEFAULT_CONFIG => "/root/scripts/utils/mail.conf"
     
 };
 
@@ -44,7 +44,7 @@ sub new
     $self->{port} = getField("port", %parameters);
     $self->{user} = getField("user", %parameters);
     $self->{password} = getField("password", %parameters);
-    $self->{to} = getField("to", %parameters);
+    $self->{to} = [getField("to", %parameters)] || [];
     $self->{from} = getField("from", %parameters);
 
     # Check if host is defined
@@ -60,12 +60,13 @@ sub new
     # Create the mail object using Net::SMTPS
     my $mailer = new Net::SMTPS( $self->{host},
                                  Port => $self->{port},
+                                 doSSL => 'ssl',
                                );
                                
     # Check if username and password are passed, if yes, authenticate
-    if ( $parameters{user} && $parameters{password} )
+    if ( $self->{user} && $self->{password} )
     {
-        $mailer->auth( $parameters{user}, $parameters{password}, 'LOGIN' );
+        $mailer->auth( $self->{user}, $self->{password}, 'LOGIN' );
     }
     
     # Assing the mailer
@@ -81,6 +82,7 @@ sub getField
 
     return $parameters{$fieldName} if ($parameters{$fieldName});
 
+    $fieldName = ucfirst($fieldName);
     if ($parameters{config})
     {
         my $config = Config::IniFiles->new ( -file => $parameters{config} );
@@ -158,7 +160,7 @@ sub send
     my $mesg = $self->{mailer}->message();
     
     # Check if everything was ok
-    unless( $mesg =~ m/2\.0\.0\sOk\:\squeued\sas/i )
+    unless( $mesg =~ m/Ok\sid=/i )
     {
         $self->{mailer}->quit;
         $self->{error} = "Cannot send mail: $mesg";
