@@ -5,7 +5,7 @@ use warnings;
 use LWP::UserAgent;
 use Config::IniFiles;
 use Getopt::Long;
-Getopt::Long::Configure("no_auto_abbrev");
+Getopt::Long::Configure( "no_auto_abbrev" );
 
 use lib '/root/scripts/utils';
 use Mail;
@@ -15,53 +15,53 @@ my %opts;
 
 GetOptions (
     \%opts,
-    "help|h",       # This option will display a short help message.
+    "help|h", # This option will display a short help message.
     "config|c:s",   # This option indicates the configuration file to use
 );
 
 # Check if the configuration file exists
-unless ( $opts{'config'} )
+unless ($opts{'config'})
 {
     print "No configuration file passed! Use the -c/--config option to pass a";
     print " configuration file to the script\n";
     exit 1;
 }
 
-unless ( -r $opts{'config'} )
+unless (-r $opts{'config'})
 {
     print "The configuration file passed (".$opts{'config'}.") is not ";
     print "readable. Please specify another one\n";
     exit 1;
 }
- 
+
 # Get the configuration file
 my $cfg = Config::IniFiles->new ( -file => $opts{'config'} );
 
 # Read the configuration
-my $logfile = $cfg->val("General","Logfile");
-my $old_ip_file = $cfg->val("General","OldIpFile");
-my $mail_address = $cfg->val("Mail","To");
+my $logfile = $cfg->val( "General", "Logfile" );
+my $old_ip_file = $cfg->val( "General", "OldIpFile" );
+my $mail_address = $cfg->val( "Mail", "To" );
 
 # Open the logfile
-unless ( open( LOG, ">>$logfile" ) )
+unless (open( LOG, ">>$logfile" ))
 {
     print "Cannot open logfile $logfile!\n";
     exit 1;
 }
- 
+
 # Create a new user agent (fake mozilla firefox to make the website
 # think it is a real browser
-my $ua = LWP::UserAgent->new(agent => "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:32.0) Gecko/20100101 Firefox/32.0");
+my $ua = LWP::UserAgent->new( agent => "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:32.0) Gecko/20100101 Firefox/32.0" );
 
 # Get the date
 my $date = `date +"%Y-%m-%dT%H:%M:%S"`;
-chomp($date);
+chomp( $date );
 
 # And download the conthent from the website
-my $response = $ua->get('http://whatismyip.pw');
- 
+my $response = $ua->get( 'http://whatismyip.pw' );
+
 # Parse the result
-unless ( $response->is_success )
+unless ($response->is_success)
 {
     print LOG "$date : Ipcheck failed! Cannot get content of www.whatismyip.pw\n";
     close LOG;
@@ -75,28 +75,28 @@ $content =~ m/Your IP is\: (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/;
 my $current_ip = $1;
 
 # Get the old ip address from the file
-if ( -e $old_ip_file )
+if (-e $old_ip_file)
 {
     open( OLD, $old_ip_file );
     my $old_ip = <OLD>;
 
-    if ( $old_ip ne $current_ip )
+    if ($old_ip ne $current_ip)
     {
         # Send the mail
         my $mailer = Mail->new();
         my $message = "Dear admin, The public IP of our home changed from $old_ip to $current_ip. Please update the bind configuration and switchplus nameserver in order to have a functional DNS.\n\nCheers your ip-check script";
-        $message = "Subject: Our Public IP changed to $current_ip\n" . $message;
+        $message = "Subject: Our Public IP changed to $current_ip\n".$message;
         open( NEW, ">$old_ip_file" );
         print NEW $current_ip;
         close NEW;
-        $mailer->send($message);
-        if( $mailer->error() )
+        $mailer->send( $message );
+        if ($mailer->error())
         {
-            print LOG "Mail could not be sent: " . $mailer->error() . "\n";
+            print LOG "Mail could not be sent: ".$mailer->error()."\n";
         } else
         {
             print LOG "$date : IP changed from $old_ip to $current_ip. Mail sent";
-            print LOG " to the administrator (" . $mailer->getTo() . ")\n";
+            print LOG " to the administrator (".join( ",", $mailer->getTo() ).")\n";
         }
     } else
     {
