@@ -7,6 +7,9 @@ use Config::IniFiles;
 use Getopt::Long;
 Getopt::Long::Configure("no_auto_abbrev");
 
+use lib '/root/scripts/utils';
+use Mail;
+
 # Get the configuration option
 my %opts;
 
@@ -60,8 +63,7 @@ my $response = $ua->get('http://whatismyip.pw');
 # Parse the result
 unless ( $response->is_success )
 {
-    print LOG "$date : Ipcheck failed! Cannot get content of www.whatismyip";
-    print LOG ".pw\n";
+    print LOG "$date : Ipcheck failed! Cannot get content of www.whatismyip.pw\n";
     close LOG;
     exit 1;
 }
@@ -81,12 +83,21 @@ if ( -e $old_ip_file )
     if ( $old_ip ne $current_ip )
     {
         # Send the mail
-        system("echo 'Dear admin, The public IP of our home changed from $old_ip to $current_ip. Please update the bind configuration and switchplus nameserver in order to have a functional DNS. Cheers your ip-check script' | mutt -s 'Our Public IP changed to $current_ip' -- $mail_address");
+        my $mailer = Mail->new();
+        my $message = "Dear admin, The public IP of our home changed from $old_ip to $current_ip. Please update the bind configuration and switchplus nameserver in order to have a functional DNS.\n\nCheers your ip-check script";
+        $message = "Subject: Our Public IP changed to $current_ip\n" . $message;
         open( NEW, ">$old_ip_file" );
-	print NEW $current_ip;
+        print NEW $current_ip;
         close NEW;
-        print LOG "$date : IP changed from $old_ip to $current_ip. Mail sent";
-        print LOG " to the administrator ($mail_address)\n";
+        $mailer->send($message);
+        if( $mailer->error() )
+        {
+            print LOG "Mail could not be sent: " . $mailer->error() . "\n";
+        } else
+        {
+            print LOG "$date : IP changed from $old_ip to $current_ip. Mail sent";
+            print LOG " to the administrator (" . $mailer->getTo() . ")\n";
+        }
     } else
     {
         print LOG "$date : Ipcheck successful, still the same ip: $current_ip";
