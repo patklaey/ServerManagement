@@ -21,7 +21,7 @@ if (getFreeMemory() < 200000)
     $problem = 1;
     $subject = "Memory ";
     $message .= `free -m`."\n\n";
-    $message .= `ps aux`."\n";
+    $message .= `top -o %MEM -n 1 -b`."\n";
 }
 
 if ($problem == 1)
