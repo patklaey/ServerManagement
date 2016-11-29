@@ -3,7 +3,12 @@ use strict;
 use warnings FATAL => 'all';
 use lib '/root/scripts/utils';
 use Mail;
+use Config::IniFiles;
 
+my $config = Config::IniFiles->new ( -file => './monitoring.conf' );
+my $client_id = $config->val( "Sms", "ClientId" );
+my $sender = $config->val( "Sms", "Sender" );
+my $recipient = $config->val( "Sms", "Recipient" );
 my $subject = "";
 my $message = "Hello, there seems to be a problem on the server patklaey.ch:\n\n";
 my $problem = 0;
@@ -29,9 +34,15 @@ if ($problem == 1)
     my $mailer = Mail->new();
     my $message_to_send = "Subject: ".$subject." alert on patklaey.ch\n".$message;
     $mailer->send( $message_to_send );
+    my $sms_message = "Error";
     if ($mailer->error())
     {
-        print "Problem, sending mail failed:".$mailer->error()."\n";
+        $sms_message = "$subject alert on patklaey.ch, login to server! Sending mail failed: ".$mailer->error();
+        sendSMS( $sms_message, $sender, $recipient, $client_id );
+    } else
+    {
+        $sms_message = "There is an alert on patklaey.ch, check mail for more information";
+        sendSMS( $sms_message, $sender, $recipient, $client_id );
     }
 }
 
@@ -59,4 +70,10 @@ sub getFreeMemory
         }
     }
     return $free_mem;
+}
+
+sub sendSMS
+{
+    my ($message, $sender, $recipient, $client_id) = @_;
+    system( 'curl -ikX POST -d "{\"outboundSMSMessageRequest\":{\"senderAddress\":\"tel:'.$sender.'\", \"address\":[\"tel:'.$recipient.'\"],\"outboundSMSTextMessage\":{\"message\":\"'.$message.'\"},\"clientCorrelator\":\"any id\"}}" -H "Content-Type:application/json" -H "Accept:application/json" -H "client_id: '.$client_id.'" https://api.swisscom.com/v1/messaging/sms/outbound/tel:'.$receipient.'/requests' );
 }
