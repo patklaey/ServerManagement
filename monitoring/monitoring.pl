@@ -4,8 +4,33 @@ use warnings FATAL => 'all';
 use lib '/root/scripts/utils';
 use Mail;
 use Config::IniFiles;
+use Getopt::Long;
+Getopt::Long::Configure( "no_auto_abbrev" );
 
-my $config = Config::IniFiles->new ( -file => './monitoring.conf' );
+# Get the configuration option
+my %opts;
+
+GetOptions (
+    \%opts,
+    "config|c:s",   # This option indicates the configuration file to use
+);
+
+# Check if the configuration file exists
+unless ($opts{'config'})
+{
+    print "No configuration file passed! Use the -c/--config option to pass a";
+    print " configuration file to the script\n";
+    exit 1;
+}
+
+unless (-r $opts{'config'})
+{
+    print "The configuration file passed (".$opts{'config'}.") is not ";
+    print "readable. Please specify another one\n";
+    exit 1;
+}
+
+my $config = Config::IniFiles->new ( -file => $opts{'config'} );
 my $client_id = $config->val( "Sms", "ClientId" );
 my $sender = $config->val( "Sms", "Sender" );
 my $recipient = $config->val( "Sms", "Recipient" );
