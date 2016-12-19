@@ -158,6 +158,9 @@ sub needToSendSMS
 
 sub resetSMSTimout
 {
-    $config->setval( "SMS", "Timeout", 0 );
-    $config->RewriteConfig();
+    if ($config->val( "SMS", "Timeout" ) != 0)
+    {
+        $config->setval( "SMS", "Timeout", 0 );
+        $config->RewriteConfig();
+    }
 }
