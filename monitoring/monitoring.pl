@@ -133,6 +133,7 @@ sub increaseSMSTimeout
         $newTimeout = $currentTimeout * 2;
     }
     $config->setval( "SMS", "Timeout", $newTimeout );
+    $config->RewriteConfig();
 }
 
 sub needToSendSMS
@@ -158,4 +159,5 @@ sub needToSendSMS
 sub resetSMSTimout
 {
     $config->setval( "SMS", "Timeout", 0 );
+    $config->RewriteConfig();
 }
