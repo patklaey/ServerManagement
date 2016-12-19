@@ -82,6 +82,9 @@ if ($problem == 1)
             sendSMS( $sms_message, $sender, $recipient, $client_id );
         }
     }
+} else
+{
+    resetSMSTimout();
 }
 
 sub getCpuUsage
@@ -150,4 +153,9 @@ sub needToSendSMS
     {
         return 0;
     }
+}
+
+sub resetSMSTimout
+{
+    $config->setval( "SMS", "Timeout", 0 );
 }
