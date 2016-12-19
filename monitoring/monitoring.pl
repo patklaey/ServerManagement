@@ -30,10 +30,17 @@ unless (-r $opts{'config'})
     exit 1;
 }
 
+use DateTime::Format::Strptime;
+my $parser = DateTime::Format::Strptime->new(
+    pattern  => '%Y-%m-%dT%H:%M:%S',
+    on_error => 'croak',
+);
+my $timezone = DateTime::TimeZone->new( name => 'local' );
+
 my $config = Config::IniFiles->new ( -file => $opts{'config'} );
-my $client_id = $config->val( "Sms", "ClientId" );
-my $sender = $config->val( "Sms", "Sender" );
-my $recipient = $config->val( "Sms", "Recipient" );
+my $client_id = $config->val( "SMS", "ClientId" );
+my $sender = $config->val( "SMS", "Sender" );
+my $recipient = $config->val( "SMS", "Recipient" );
 my $subject = "";
 my $message = "Hello, there seems to be a problem on the server patklaey.ch:\n\n";
 my $problem = 0;
@@ -63,11 +70,17 @@ if ($problem == 1)
     if ($mailer->error())
     {
         $sms_message = "$subject alert on patklaey.ch, login to server! Sending mail failed: ".$mailer->error();
-        sendSMS( $sms_message, $sender, $recipient, $client_id );
+        if (needToSendSMS())
+        {
+            sendSMS( $sms_message, $sender, $recipient, $client_id );
+        }
     } else
     {
         $sms_message = "There is an alert on patklaey.ch, check mail for more information";
-        sendSMS( $sms_message, $sender, $recipient, $client_id );
+        if (needToSendSMS())
+        {
+            sendSMS( $sms_message, $sender, $recipient, $client_id );
+        }
     }
 }
 
@@ -101,4 +114,40 @@ sub sendSMS
 {
     my ($message, $sender, $recipient, $client_id) = @_;
     system( 'curl -ikX POST -d "{\"outboundSMSMessageRequest\":{\"senderAddress\":\"tel:'.$sender.'\", \"address\":[\"tel:'.$recipient.'\"],\"outboundSMSTextMessage\":{\"message\":\"'.$message.'\"},\"clientCorrelator\":\"any id\"}}" -H "Content-Type:application/json" -H "Accept:application/json" -H "client_id: '.$client_id.'" https://api.swisscom.com/v1/messaging/sms/outbound/tel:'.$recipient.'/requests' );
+    $config->setval( "SMS", "LastSent", DateTime->now( time_zone => $timezone ) );
+    increaseSMSTimeout();
+}
+
+sub increaseSMSTimeout
+{
+    my $currentTimeout = $config->val( "SMS", "Timeout" );
+    my $newTimeout;
+    if ($currentTimeout == 0)
+    {
+        $newTimeout = 1;
+    } else
+    {
+        $newTimeout = $currentTimeout * 2;
+    }
+    $config->setval( "SMS", "Timeout", $newTimeout );
+}
+
+sub needToSendSMS
+{
+    my $lastSent = $parser->parse_datetime( $config->val( "SMS", "LastSent" ) );
+    if (!defined $lastSent)
+    {
+        return 1;
+    }
+
+    my $currentTime = DateTime->now( time_zone => $timezone );
+    my $timeout = $config->val( "SMS", "Timeout" );
+    my $nextSendTime = $lastSent->add( hours => $timeout );
+    if (DateTime->compare( $currentTime, $nextSendTime ) >= 0)
+    {
+        return 1;
+    } else
+    {
+        return 0;
+    }
 }
