@@ -138,15 +138,16 @@ sub increaseSMSTimeout
 
 sub needToSendSMS
 {
-    my $lastSent = $parser->parse_datetime( $config->val( "SMS", "LastSent" ) );
-    if (!defined $lastSent)
+    my $lastSent = $config->val( "SMS", "LastSent" );
+    if (!defined $lastSent || $lastSent eq "")
     {
         return 1;
     }
 
+    my $lastSentTime = $parser->parse_datetime( $lastSent );
     my $currentTime = DateTime->now( time_zone => $timezone );
     my $timeout = $config->val( "SMS", "Timeout" );
-    my $nextSendTime = $lastSent->add( hours => $timeout );
+    my $nextSendTime = $lastSentTime->add( hours => $timeout );
     if (DateTime->compare( $currentTime, $nextSendTime ) >= 0)
     {
         return 1;
