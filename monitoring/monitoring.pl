@@ -70,8 +70,8 @@ if (!localBackupOk())
 {
     $problem = 1;
     $subject .= "Local Backup ";
-    $message .= `tail /var/log/backup.log{,.1}`;
-    $message .= "\n\n";
+    $message .= `tail /var/log/backup.log`."\n";
+    $message .= `tail /var/log/backup.log.1`."\n";
 }
 
 if (!remmoteBackupOk())
