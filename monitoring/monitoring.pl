@@ -4,6 +4,7 @@ use warnings FATAL => 'all';
 use lib '/root/scripts/utils';
 use Mail;
 use Config::IniFiles;
+use File::ReadBackwards;
 use Getopt::Long;
 Getopt::Long::Configure( "no_auto_abbrev" );
 
@@ -35,6 +36,10 @@ my $parser = DateTime::Format::Strptime->new(
     pattern  => '%Y-%m-%dT%H:%M:%S',
     on_error => 'croak',
 );
+my $local_backup_parser = DateTime::Format::Strptime->new(
+    pattern  => '%a %h %d %H:%M:%S %Z %Y',
+    on_error => 'croak',
+);
 my $timezone = DateTime::TimeZone->new( name => 'local' );
 
 my $config = Config::IniFiles->new ( -file => $opts{'config'} );
@@ -56,9 +61,22 @@ if ($load[0] > 1 || $load[1] > 0.75 || $load[2] > 0.5)
 if (getFreeMemory() < 200000)
 {
     $problem = 1;
-    $subject = "Memory ";
+    $subject .= "Memory ";
     $message .= `free -m`."\n\n";
     $message .= `top -o %MEM -n 1 -b`."\n";
+}
+
+if (!localBackupOk())
+{
+    $problem = 1;
+    $subject .= "Local Backup ";
+    $message .= `tail /var/log/backup.log{,.1}`;
+    $message .= "\n\n";
+}
+
+if (!remmoteBackupOk())
+{
+
 }
 
 if ($problem == 1)
@@ -85,6 +103,49 @@ if ($problem == 1)
 } else
 {
     resetSMSTimout();
+}
+
+sub remmoteBackupOk
+{
+    return 1;
+}
+
+sub localBackupOk
+{
+    my $localBackupLogFile = "/var/log/backup.log";
+    my $reverseFileReader = File::ReadBackwards->new( $localBackupLogFile ) or die "Can't read $localBackupLogFile $!";
+    my $last_line;
+    if (!defined( $last_line = $reverseFileReader->readline ))
+    {
+        $localBackupLogFile .= ".1";
+        $reverseFileReader = File::ReadBackwards->new( $localBackupLogFile ) or die "Can't read $localBackupLogFile $!";
+        if (!defined( $last_line = $reverseFileReader->readline ))
+        {
+            return 0;
+        }
+    }
+
+    if ($last_line !~ m/^#+$/)
+    {
+        return 0;
+    }
+
+    my $next_line = $reverseFileReader->readline;
+    if (defined $next_line)
+    {
+        my $last_local_finish = $local_backup_parser->parse_datetime( $next_line );
+        $last_local_finish->add( days => 1 );
+        $last_local_finish->add( hours => 1 );
+        my $currentTime = DateTime->now( time_zone => $timezone );
+        my $timeDiff = DateTime->compare( $last_local_finish, $currentTime );
+        $next_line = $reverseFileReader->readline;
+        chomp( $next_line );
+        if ($next_line eq "Backup finished" && $timeDiff >= 0)
+        {
+            return 1;
+        }
+    }
+    return 0;
 }
 
 sub getCpuUsage
