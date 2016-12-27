@@ -143,8 +143,6 @@ sub remoteBackupOk
     $last_remote_finish->add( days => 1 );
     my $currentTime = DateTime->now( time_zone => $timezone );
     my $timeDiff = DateTime->compare( $last_remote_finish, $currentTime );
-    $next_line = $reverseFileReader->readline;
-    chomp( $next_line );
     if ($timeDiff >= 0)
     {
         return 1;
