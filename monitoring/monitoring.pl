@@ -6,6 +6,7 @@ use Mail;
 use Config::IniFiles;
 use File::ReadBackwards;
 use Getopt::Long;
+use DateTime::Format::Strptime;
 Getopt::Long::Configure( "no_auto_abbrev" );
 
 # Get the configuration option
@@ -31,9 +32,12 @@ unless (-r $opts{'config'})
     exit 1;
 }
 
-use DateTime::Format::Strptime;
 my $parser = DateTime::Format::Strptime->new(
     pattern  => '%Y-%m-%dT%H:%M:%S',
+    on_error => 'croak',
+);
+my $remote_backup_parser = DateTime::Format::Strptime->new(
+    pattern  => '%m/%d/%y %H:%M%p',
     on_error => 'croak',
 );
 my $local_backup_parser = DateTime::Format::Strptime->new(
@@ -46,6 +50,9 @@ my $config = Config::IniFiles->new ( -file => $opts{'config'} );
 my $client_id = $config->val( "SMS", "ClientId" );
 my $sender = $config->val( "SMS", "Sender" );
 my $recipient = $config->val( "SMS", "Recipient" );
+my $remoteBackupLogFile = $config->val( "Logfiles", "Remote" );
+my $localBackupLogFile = $config->val( "Logfiles", "Local" );
+
 my $subject = "";
 my $message = "Hello, there seems to be a problem on the server patklaey.ch:\n\n";
 my $problem = 0;
@@ -74,9 +81,20 @@ if (!localBackupOk())
     $message .= `tail /var/log/backup.log.1`."\n";
 }
 
-if (!remmoteBackupOk())
+if (!crashplanRunning())
 {
+    $problem = 1;
+    $subject .= "Crashplan ";
+    $message .= "Crashplan is currently not running: "."\n";
+    $message .= `ps aux | grep crashplan`."\n";
+}
 
+if (!remoteBackupOk())
+{
+    $problem = 1;
+    $subject .= "Remote Backup ";
+    $message .= `tail /usr/local/crashplan/log/backup_files.log.0`."\n";
+    $message .= `tail /usr/local/crashplan/log/backup_files.log.0.1`."\n";
 }
 
 if ($problem == 1)
@@ -84,7 +102,7 @@ if ($problem == 1)
     my $mailer = Mail->new();
     my $message_to_send = "Subject: ".$subject." alert on patklaey.ch\n".$message;
     $mailer->send( $message_to_send );
-    my $sms_message = "Error";
+    my $sms_message;
     if ($mailer->error())
     {
         $sms_message = "$subject alert on patklaey.ch, login to server! Sending mail failed: ".$mailer->error();
@@ -105,14 +123,46 @@ if ($problem == 1)
     resetSMSTimout();
 }
 
-sub remmoteBackupOk
+sub remoteBackupOk
 {
-    return 1;
+    my $reverseFileReader = File::ReadBackwards->new( $remoteBackupLogFile ) or die "Can't read $remoteBackupLogFile $!";
+    my $last_line;
+    if (!defined( $last_line = $reverseFileReader->readline ))
+    {
+        $remoteBackupLogFile .= ".1";
+        $reverseFileReader = File::ReadBackwards->new( $remoteBackupLogFile ) or die "Can't read $remoteBackupLogFile $!";
+        if (!defined( $last_line = $reverseFileReader->readline ))
+        {
+            return 0;
+        }
+    }
+
+    $last_line =~ m/^I\s(\d{1,2}\/\d{1,2}\/\d{1,2}\s\d\d:\d\d(AM|PM))\s42/;
+    my $last_execute_date = $1;
+    my $last_remote_finish = $remote_backup_parser->parse_datetime( $last_execute_date );
+    $last_remote_finish->add( days => 1 );
+    my $currentTime = DateTime->now( time_zone => $timezone );
+    my $timeDiff = DateTime->compare( $last_remote_finish, $currentTime );
+    $next_line = $reverseFileReader->readline;
+    chomp( $next_line );
+    if ($timeDiff >= 0)
+    {
+        return 1;
+    }
+
+    return 0;
+}
+
+sub crashplanRunning
+{
+    my $command = "ps aux | grep crashplan | grep -v grep | wc -l";
+    my $command_output = `$command`;
+    chomp( $command_output );
+    return $command_output == 1;
 }
 
 sub localBackupOk
 {
-    my $localBackupLogFile = "/var/log/backup.log";
     my $reverseFileReader = File::ReadBackwards->new( $localBackupLogFile ) or die "Can't read $localBackupLogFile $!";
     my $last_line;
     if (!defined( $last_line = $reverseFileReader->readline ))
