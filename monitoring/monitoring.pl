@@ -37,7 +37,7 @@ my $parser = DateTime::Format::Strptime->new(
     on_error => 'croak',
 );
 my $remote_backup_parser = DateTime::Format::Strptime->new(
-    pattern  => '%m/%d/%y %H:%M%p',
+    pattern  => '%s',
     on_error => 'croak',
 );
 my $local_backup_parser = DateTime::Format::Strptime->new(
@@ -80,18 +80,11 @@ if (!localBackupOk()) {
     $message .= `tail /var/log/backup.log.1` . "\n";
 }
 
-if (!crashplanRunning()) {
-    $problem = 1;
-    $subject .= "Crashplan ";
-    $message .= "Crashplan is currently not running: " . "\n";
-    $message .= `ps aux | grep crashplan` . "\n";
-}
-
 if (!remoteBackupOk()) {
     $problem = 1;
     $subject .= "Remote Backup ";
-    $message .= `tail /usr/local/crashplan/log/backup_files.log.0` . "\n";
-    $message .= `tail /usr/local/crashplan/log/backup_files.log.0.1` . "\n";
+    $message .= "Last remote backup was not successful or not run, please check the following log:\n";
+    $message .= `ls -ltr $remoteBackupLogFile | tail -n1` . "\n";
 }
 
 if ($problem == 1) {
@@ -136,18 +129,18 @@ sub isFailtoban {
 }
 
 sub remoteBackupOk {
-    my $reverseFileReader = File::ReadBackwards->new($remoteBackupLogFile) or die "Can't read $remoteBackupLogFile $!";
-    my $last_line;
-    if (!defined($last_line = $reverseFileReader->readline)) {
-        $remoteBackupLogFile .= ".1";
-        $reverseFileReader = File::ReadBackwards->new($remoteBackupLogFile) or die "Can't read $remoteBackupLogFile $!";
-        if (!defined($last_line = $reverseFileReader->readline)) {
-            return 0;
-        }
+    # TODO make sure it can handle running backups: with the following line it currently cannot
+    my $lastLogFile = `ls -ltr $remoteBackupLogFile | tail -n1 | awk '{print $9}'`;
+    if( $lastLogFile !~ m/(\d+)_(\w+)/){
+        return 0;
     }
 
-    $last_line =~ m/^I\s(\d{1,2}\/\d{1,2}\/\d{1,2}\s\d\d:\d\d(AM|PM))\s42/;
+    my $lastExecutionState = $2;
     my $last_execute_date = $1;
+    if( $lastExecutionState ne "SUCCESS") {
+        return 0;
+    }
+
     my $last_remote_finish = $remote_backup_parser->parse_datetime($last_execute_date);
     $last_remote_finish->add(days => 1);
     my $currentTime = DateTime->now(time_zone => $timezone);
@@ -155,15 +148,7 @@ sub remoteBackupOk {
     if ($timeDiff >= 0) {
         return 1;
     }
-
     return 0;
-}
-
-sub crashplanRunning {
-    my $command = "ps aux | grep crashplan | grep -v grep | wc -l";
-    my $command_output = `$command`;
-    chomp($command_output);
-    return $command_output == 1;
 }
 
 sub localBackupOk {
