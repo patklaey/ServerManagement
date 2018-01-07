@@ -130,7 +130,7 @@ sub isFailtoban {
 
 sub remoteBackupOk {
     # TODO make sure it can handle running backups: with the following line it currently cannot
-    my $lastLogFile = `ls -ltr $remoteBackupLogFile | tail -n1 | awk '{print $9}'`;
+    my $lastLogFile = `ls -ltr $remoteBackupLogFile | tail -n1 | awk '{print \$9}'`;
     if( $lastLogFile !~ m/(\d+)_(\w+)/){
         return 0;
     }
