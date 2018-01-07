@@ -114,7 +114,7 @@ else {
 sub isFailtoban {
 
     my $consuming_process = `top -n 1 -b | head -n 8 | tail -n 1`;
-    if($consuming_process =~ m/fail2ban-client/) {
+    if($consuming_process =~ m/fail2ban-client|fail2ban-c\+/) {
         print "$date: Fail2ban client is running crazy again, going to kill it\n";
         my $pid = `pidof fail2ban-client`;
         system("kill -9 $pid");
