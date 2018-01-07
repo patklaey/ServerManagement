@@ -10,3 +10,7 @@ readonly WIKI_DATABASE=""
 readonly OWNCLOUD_DB_USER=""
 readonly OWNCLOUD_DB_PASSWORD=""
 readonly OWNCLOUD_DATABASE=""
+
+readonly ZERMATT_DB_USER=""
+readonly ZERMATT_DB_PASSWORD=""
+readonly ZERMATT_DATABASE=""

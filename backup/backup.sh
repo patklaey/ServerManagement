@@ -27,13 +27,18 @@ echo -e "\nSaving webdav directory..."
 rsync --verbose --archive -h /home/webdav /mnt/backup/home/
 
 # Save the owncloud directory
-#echo -e "\nSaving owncloud directory..."
-#rsync --verbose --archive -h /home/owncloud /mnt/backup/home/
+echo -e "\nSaving owncloud directory..."
+rsync --verbose --archive -h /home/owncloud /mnt/backup/home/
 
 # Save wiki database
 echo -e "\nSaving owncloud database..."
 mysqldump -u ${OWNCLOUD_DB_USER} -p"${OWNCLOUD_DB_PASSWORD}" --opt --quote-names --skip-set-charset --default-character-set=latin1 ${OWNCLOUD_DATABASE} > /mnt/backup/owncloud-utf.sql
 cp -p /mnt/backup/owncloud-utf.sql /root/db_backup/owncloud-utf.sql
+
+# Save zermatt database
+echo -e "\nSaving zermatt database..."
+mysqldump -u ${ZERMATT_DB_USER} -p"${ZERMATT_DB_PASSWORD}" --opt --quote-names --skip-set-charset --default-character-set=latin1 ${ZERMATT_DATABASE} > /mnt/backup/zermatt-utf.sql
+cp -p /mnt/backup/zermatt-utf.sql /root/db_backup/zermatt-utf.sql
 
 # Save the html directory
 echo -e "\nSaving html directory..."
