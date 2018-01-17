@@ -84,7 +84,7 @@ if (!remoteBackupOk()) {
     $problem = 1;
     $subject .= "Remote Backup ";
     $message .= "Last remote backup was not successful or not run, please check the following log:\n";
-    $message .= `ls -l $remoteBackupLogFileLocation | tail -n1` . "\n";
+    $message .= `ls -l $remoteBackupLogFileLocation | tail -n2` . "\n";
 }
 
 if ($problem == 1) {
