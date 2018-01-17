@@ -50,7 +50,7 @@ my $config = Config::IniFiles->new (-file => $opts{'config'});
 my $client_id = $config->val("SMS", "ClientId");
 my $sender = $config->val("SMS", "Sender");
 my $recipient = $config->val("SMS", "Recipient");
-my $remoteBackupLogFile = $config->val("Logfiles", "Remote");
+my $remoteBackupLogFileLocation = $config->val("Logfiles", "Remote");
 my $localBackupLogFile = $config->val("Logfiles", "Local");
 
 my $subject = "";
@@ -84,7 +84,7 @@ if (!remoteBackupOk()) {
     $problem = 1;
     $subject .= "Remote Backup ";
     $message .= "Last remote backup was not successful or not run, please check the following log:\n";
-    $message .= `ls -ltr $remoteBackupLogFile | tail -n1` . "\n";
+    $message .= `ls -l $remoteBackupLogFileLocation | tail -n1` . "\n";
 }
 
 if ($problem == 1) {
@@ -129,10 +129,17 @@ sub isFailtoban {
 }
 
 sub remoteBackupOk {
-    # TODO make sure it can handle running backups: with the following line it currently cannot
-    my $lastLogFile = `ls -ltr $remoteBackupLogFile | tail -n1 | awk '{print \$9}'`;
-    if( $lastLogFile !~ m/(\d+)_(\w+)/){
-        return 0;
+    my $days_diff = 1;
+    my $lastLogFile = `ls -l $remoteBackupLogFileLocation | tail -n1 | awk '{print \$9}'`;
+    if( $lastLogFile !~ m/^(\d+)_(\w+)$/){
+        if( $lastLogFile =~ m/^\d+$/){
+            print "Remote backup is still in progress, checking from yesterday...";
+            $lastLogFile = `ls -l $remoteBackupLogFileLocation | tail -n1 | head -n1 | awk '{print \$9}'`;
+            $days_diff = 2;
+        }
+        else {
+            return 0;
+        }
     }
 
     my $lastExecutionState = $2;
@@ -142,7 +149,7 @@ sub remoteBackupOk {
     }
 
     my $last_remote_finish = $remote_backup_parser->parse_datetime($last_execute_date);
-    $last_remote_finish->add(days => 1);
+    $last_remote_finish->add(days => $days_diff);
     my $currentTime = DateTime->now(time_zone => $timezone);
     my $timeDiff = DateTime->compare($last_remote_finish, $currentTime);
     if ($timeDiff >= 0) {
