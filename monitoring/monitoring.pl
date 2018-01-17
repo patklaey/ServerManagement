@@ -212,8 +212,8 @@ sub getFreeMemory {
 }
 
 sub sendSMS {
-    my ($message, $sender, $recipient, $client_id) = @_;
-    system('curl -ikX POST -d "{\"outboundSMSMessageRequest\":{\"senderAddress\":\"tel:' . $sender . '\", \"address\":[\"tel:' . $recipient . '\"],\"outboundSMSTextMessage\":{\"message\":\"' . $message . '\"},\"clientCorrelator\":\"any id\"}}" -H "Content-Type:application/json" -H "Accept:application/json" -H "client_id: ' . $client_id . '" https://api.swisscom.com/v1/messaging/sms/outbound/tel:' . $recipient . '/requests');
+    my ($smsMessage, $smsSender, $smsRecipient, $smsClientId) = @_;
+    system('curl -ikX POST -d "{\"outboundSMSMessageRequest\":{\"senderAddress\":\"tel:' . $smsSender . '\", \"address\":[\"tel:' . $smsRecipient . '\"],\"outboundSMSTextMessage\":{\"message\":\"' . $smsMessage . '\"},\"clientCorrelator\":\"any id\"}}" -H "Content-Type:application/json" -H "Accept:application/json" -H "client_id: ' . $smsClientId . '" https://api.swisscom.com/v1/messaging/sms/outbound/tel:' . $smsRecipient . '/requests');
     $config->setval("SMS", "LastSent", DateTime->now(time_zone => $timezone));
     increaseSMSTimeout();
 }
