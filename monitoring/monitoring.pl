@@ -133,9 +133,12 @@ sub remoteBackupOk {
     my $lastLogFile = `ls -l $remoteBackupLogFileLocation | tail -n1 | awk '{print \$9}'`;
     if( $lastLogFile !~ m/^(\d+)_(\w+)$/){
         if( $lastLogFile =~ m/^\d+$/){
-            print "Remote backup is still in progress, checking from yesterday...";
+            print "Remote backup is still in progress, checking from yesterday...\n";
             $lastLogFile = `ls -l $remoteBackupLogFileLocation | tail -n1 | head -n1 | awk '{print \$9}'`;
             $days_diff = 2;
+            if( $lastLogFile !~ m/^(\d+)_(\w+)$/){
+                return 0;
+            }
         }
         else {
             return 0;
