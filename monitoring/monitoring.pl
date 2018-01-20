@@ -50,8 +50,8 @@ my $config = Config::IniFiles->new (-file => $opts{'config'});
 my $client_id = $config->val("SMS", "ClientId");
 my $sender = $config->val("SMS", "Sender");
 my $recipient = $config->val("SMS", "Recipient");
-my $remoteBackupLogFileLocation = $config->val("Logfiles", "Remote");
-my $localBackupLogFile = $config->val("Logfiles", "Local");
+my $remoteBackupLogFileLocation = $config->val("Backup", "Remote");
+my $localBackupLogFile = $config->val("Backup", "Local");
 
 my $subject = "";
 my $message = "Hello, there seems to be a problem on the server patklaey.ch:\n\n";
@@ -81,10 +81,19 @@ if (!localBackupOk()) {
 }
 
 if (!remoteBackupOk()) {
-    $problem = 1;
-    $subject .= "Remote Backup ";
-    $message .= "Last remote backup was not successful or not run, please check the following log:\n";
-    $message .= `ls -l $remoteBackupLogFileLocation | tail -n2` . "\n";
+    if( $config->val("Backup", "RemoteSuccess") ) {
+        $problem = 1;
+        $subject .= "Remote Backup ";
+        $message .= "Last remote backup was not successful or not run, please check the following log:\n";
+        $message .= `ls -l $remoteBackupLogFileLocation | tail -n2` . "\n";
+        $config->setval("Backup", "RemoteSuccess", 0);
+        $config->RewriteConfig();
+    } else {
+        print "Remote backup still not sucessful... Not sending notification as already notified\n";
+    }
+} else {
+    $config->setval("Backup", "RemoteSuccess", 1);
+    $config->RewriteConfig();
 }
 
 if ($problem == 1) {
