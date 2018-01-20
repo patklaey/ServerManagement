@@ -130,23 +130,29 @@ sub isFailtoban {
 
 sub remoteBackupOk {
     my $days_diff = 1;
+    my $lastExecutionState = $2;
+    my $last_execute_date = $1;
     my $lastLogFile = `ls -l $remoteBackupLogFileLocation | tail -n1 | awk '{print \$9}'`;
     if( $lastLogFile !~ m/^(\d+)_(\w+)$/){
         if( $lastLogFile =~ m/^\d+$/){
             print "Remote backup is still in progress, checking from yesterday...\n";
-            $lastLogFile = `ls -l $remoteBackupLogFileLocation | tail -n1 | head -n1 | awk '{print \$9}'`;
+            $lastLogFile = `ls -l $remoteBackupLogFileLocation | tail -n2 | head -n1 | awk '{print \$9}'`;
             $days_diff = 2;
             if( $lastLogFile !~ m/^(\d+)_(\w+)$/){
                 return 0;
+            } else {
+                $lastExecutionState = $2;
+                $last_execute_date = $1;
             }
         }
         else {
             return 0;
         }
+    } else {
+        $lastExecutionState = $2;
+        $last_execute_date = $1;
     }
 
-    my $lastExecutionState = $2;
-    my $last_execute_date = $1;
     if( $lastExecutionState ne "SUCCESS") {
         return 0;
     }
