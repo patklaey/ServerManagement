@@ -89,7 +89,7 @@ if (!remoteBackupOk()) {
         $config->setval("Backup", "RemoteSuccess", 0);
         $config->RewriteConfig();
     } else {
-        print "Remote backup still not sucessful... Not sending notification as already notified\n";
+        print "$date: Remote backup still not sucessful... Not sending notification as already notified\n";
     }
 } else {
     $config->setval("Backup", "RemoteSuccess", 1);
@@ -144,7 +144,7 @@ sub remoteBackupOk {
     my $lastLogFile = `ls -l $remoteBackupLogFileLocation | tail -n1 | awk '{print \$9}'`;
     if( $lastLogFile !~ m/^(\d+)_(\w+)$/){
         if( $lastLogFile =~ m/^\d+$/){
-            print "Remote backup is still in progress, checking from yesterday...\n";
+            print "$date: Remote backup is still in progress, checking from yesterday...\n";
             $lastLogFile = `ls -l $remoteBackupLogFileLocation | tail -n2 | head -n1 | awk '{print \$9}'`;
             $days_diff = 2;
             if( $lastLogFile !~ m/^(\d+)_(\w+)$/){
