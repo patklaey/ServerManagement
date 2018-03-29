@@ -125,9 +125,11 @@ sub isFailtoban {
     my $consuming_process = `top -n 1 -b | head -n 8 | tail -n 1`;
     if($consuming_process =~ m/fail2ban-client|fail2ban-c\+/) {
         print "$date: Fail2ban client is running crazy again, going to kill it\n";
-        my $pid = `pidof fail2ban-client`;
+        my $pid = `ps aux | grep fail2ban-client | grep -v grep | grep python | awk '{print \$2}'`;
+        chomp($pid);
+        print "$date: Going to kill fail2ban process with pid '$pid'";
         system("kill -9 $pid");
-        my $pid_after_kill = `pidof fail2ban-client`;
+        my $pid_after_kill = `ps aux | grep fail2ban-client | grep -v grep | grep python | awk  '{print \$2}'`;
         if($pid_after_kill) {
             print "$date: Could not kill fail2ban-client... something is wrong...\n";
             return 0;
