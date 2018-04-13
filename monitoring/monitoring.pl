@@ -45,6 +45,7 @@ my $local_backup_parser = DateTime::Format::Strptime->new(
     on_error => 'croak',
 );
 my $timezone = DateTime::TimeZone->new(name => 'local');
+my $utc = DateTime::TimeZone::UTC->new;
 
 my $config = Config::IniFiles->new (-file => $opts{'config'});
 my $client_id = $config->val("SMS", "ClientId");
@@ -170,8 +171,8 @@ sub remoteBackupOk {
 
     my $last_remote_finish = $remote_backup_parser->parse_datetime($last_execute_date);
     $last_remote_finish->add(days => $days_diff);
-    my $currentTime = DateTime->now(time_zone => $timezone);
-    my $timeDiff = DateTime->compare($last_remote_finish, $currentTime);
+    my $currentTimeUTC = DateTime->now(time_zone => $utc);
+    my $timeDiff = DateTime->compare($last_remote_finish, $currentTimeUTC);
     if ($timeDiff >= 0) {
         return 1;
     }
