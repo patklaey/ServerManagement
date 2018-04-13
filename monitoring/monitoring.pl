@@ -130,7 +130,7 @@ sub isFailtoban {
         chomp($pid);
         print "$date: Going to kill fail2ban process with pid '$pid'";
         system("kill -9 $pid");
-        my $pid_after_kill = `ps aux | grep fail2ban-client | grep -v grep | grep python | awk  '{print \$2}'`;
+        my $pid_after_kill = `ps aux | grep fail2ban-client | grep -v grep | grep python | awk '{print \$2}'`;
         if($pid_after_kill) {
             print "$date: Could not kill fail2ban-client... something is wrong...\n";
             return 0;
