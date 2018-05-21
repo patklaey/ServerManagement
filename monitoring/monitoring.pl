@@ -60,11 +60,11 @@ my $problem = 0;
 
 my @load = getCpuUsage();
 if ($load[0] > 1 || $load[1] > 0.75 || $load[2] > 0.5) {
-    if(!isFailtoban()) {
+    #if(!isFailtoban()) {
         $problem = 1;
         $subject .= "CPU ";
         $message .= `top -n 1 -b` . "\n";
-    }
+    #}
 }
 
 if (getFreeMemory() < 200000) {
@@ -75,10 +75,19 @@ if (getFreeMemory() < 200000) {
 }
 
 if (!localBackupOk()) {
-    $problem = 1;
-    $subject .= "Local Backup ";
-    $message .= `tail /var/log/backup.log` . "\n";
-    $message .= `tail /var/log/backup.log.1` . "\n";
+    if( $config->val("Backup", "LocalSuccess") ) {
+        $problem = 1;
+        $subject .= "Local Backup ";
+        $message .= `tail /var/log/backup.log` . "\n";
+        $message .= `tail /var/log/backup.log.1` . "\n";
+        $config->setval("Backup", "LocalSuccess", 0);
+        $config->RewriteConfig();
+    } else {
+        print "$date: Local backup still not sucessful... Not sending notification as already notified\n";
+    }
+} else {
+    $config->setval("Backup", "LocalSuccess", 1);
+    $config->RewriteConfig();
 }
 
 if (!remoteBackupOk()) {
