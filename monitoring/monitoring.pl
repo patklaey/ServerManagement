@@ -8,6 +8,7 @@ use File::ReadBackwards;
 use Getopt::Long;
 use DateTime::Format::Strptime;
 Getopt::Long::Configure("no_auto_abbrev");
+use JSON::MaybeXS qw(encode_json);
 
 # Get the configuration option
 my %opts;
@@ -243,7 +244,16 @@ sub getFreeMemory {
 
 sub sendSMS {
     my ($smsMessage, $smsSender, $smsRecipient, $smsClientId) = @_;
-    system('curl -ikX POST -d "{\"outboundSMSMessageRequest\":{\"senderAddress\":\"tel:' . $smsSender . '\", \"address\":[\"tel:' . $smsRecipient . '\"],\"outboundSMSTextMessage\":{\"message\":\"' . $smsMessage . '\"},\"clientCorrelator\":\"any id\"}}" -H "Content-Type:application/json" -H "Accept:application/json" -H "client_id: ' . $smsClientId . '" https://api.swisscom.com/v1/messaging/sms/outbound/tel:' . $smsRecipient . '/requests');
+
+    my $body = {
+        "from" => $smsSender,
+        "to" => $smsRecipient,
+        "text" => $smsMessage
+    };
+
+    my $bodyAsString = encode_json($body);
+
+    system('curl -ikX POST -d \'' . $bodyAsString . '\' -H "SCS-Version:2" -H "Content-Type:application/json" -H "Accept:application/json" -H "client_id: ' . $smsClientId . '" https://api.swisscom.com/messaging/sms');
     $config->setval("SMS", "LastSent", DateTime->now(time_zone => $timezone));
     increaseSMSTimeout();
 }
