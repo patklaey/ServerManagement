@@ -204,6 +204,7 @@ sub localBackupOk {
         return 0;
     }
 
+    my $backup_success = 0;
     my $next_line = $reverseFileReader->readline;
     if (defined $next_line) {
         my $last_local_finish = $local_backup_parser->parse_datetime($next_line);
@@ -214,10 +215,39 @@ sub localBackupOk {
         $next_line = $reverseFileReader->readline;
         chomp($next_line);
         if ($next_line eq "Backup finished" && $timeDiff >= 0) {
-            return 1;
+            $backup_success = 1;
         }
     }
-    return 0;
+
+    # Check the space on the backup disk
+    my $enough_space = 0;
+    $next_line = $reverseFileReader->readline;
+    my @headers = qw(name size used free capacity mount);
+    my %info;
+    while( defined($next_line) ){
+        if( $next_line =~ m/^\/.*\/mnt\/backup/ ){
+            @info{@headers} = split /\s+/, $next_line;
+            my $decimal_free = percentageToDecimal($info{capacity});
+            if( $decimal_free < 0.85 ) {
+                $enough_space = 1;
+            } else {
+                print "$date: Low backup storage: $decimal_free\n"
+            }
+            last;
+        }
+        # To avoid going back too far
+        if( $next_line =~ m/^Filesystem/ ){
+            last;
+        }
+        $next_line = $reverseFileReader->readline;
+    }
+    return $backup_success && $enough_space;
+}
+
+sub percentageToDecimal {
+    my $percentage = shift;
+    $percentage =~ s{%}{};
+    return $percentage / 100;
 }
 
 sub getCpuUsage {
