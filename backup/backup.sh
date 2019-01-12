@@ -72,7 +72,7 @@ rsync --verbose --archive -h /var/www /mnt/backup/config/
 
 # Write the server image
 echo -e "\nSaving server image..."
-time dd if=/dev/mmcblk0 of=/mnt/backup/server.img
+time dd if=/dev/mmcblk0 of=/mnt/backup/backup.img
 sync
 
 # As infortmaion show filesystem usage stats
