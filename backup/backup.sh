@@ -71,7 +71,7 @@ rsync --verbose --archive -h /root/.picapport/db /mnt/backup/picapport/
 
 # Write the server image
 echo -e "\nSaving server image..."
-time dd if=/dev/mmcblk0 of=/mnt/backup/server.img
+time dd if=/dev/mmcblk0 of=/mnt/backup/backup.img
 sync
 
 # As information show filesystem usage stats
