@@ -35,15 +35,15 @@ unless (-r $opts{'config'}) {
 
 my $parser = DateTime::Format::Strptime->new(
     pattern  => '%Y-%m-%dT%H:%M:%S',
-    on_error => 'croak',
+    on_error => 'undef',
 );
 my $remote_backup_parser = DateTime::Format::Strptime->new(
     pattern  => '%s',
-    on_error => 'croak',
+    on_error => 'undef',
 );
 my $local_backup_parser = DateTime::Format::Strptime->new(
     pattern  => '%a %h %d %H:%M:%S %Z %Y',
-    on_error => 'croak',
+    on_error => 'undef',
 );
 my $timezone = DateTime::TimeZone->new(name => 'local');
 my $utc = DateTime::TimeZone::UTC->new;
@@ -208,6 +208,10 @@ sub localBackupOk {
     my $next_line = $reverseFileReader->readline;
     if (defined $next_line) {
         my $last_local_finish = $local_backup_parser->parse_datetime($next_line);
+        if( ! defined $last_local_finish || defined $local_backup_parser->errmsg ){
+            print "Failed to parse datetime ($next_line), something is fishy\n";
+            return 0;
+        }
         $last_local_finish->add(days => 1);
         $last_local_finish->add(hours => 1);
         my $currentTime = DateTime->now(time_zone => $timezone);
