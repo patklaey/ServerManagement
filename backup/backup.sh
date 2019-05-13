@@ -8,7 +8,7 @@ echo "Starting backup"
 date
 
 # Mount the backup disk
-mount --rw /dev/sdb1 /mnt/backup
+mount -t hfsplus --rw /dev/sdb1 /mnt/backup/
 
 mountExitCode=$?
 
@@ -21,10 +21,6 @@ fi
 
 # Create DB backup directory if it does not exist
 mkdir -p /root/db_backup
-
-# Save the webdav directory
-echo -e "\nSaving webdav directory..."
-rsync --verbose --archive -h /home/webdav /mnt/backup/home/
 
 # Save the owncloud directory
 echo -e "\nSaving owncloud directory..."
@@ -70,12 +66,15 @@ rsync --verbose --archive -h /etc /mnt/backup/config/
 echo -e "\nSaving webapps..."
 rsync --verbose --archive -h /var/www /mnt/backup/config/
 
+echo -e "\nSaving picapport DB..."
+rsync --verbose --archive -h /root/.picapport/db /mnt/backup/picapport/
+
 # Write the server image
 echo -e "\nSaving server image..."
 time dd if=/dev/mmcblk0 of=/mnt/backup/server.img
 sync
 
-# As infortmaion show filesystem usage stats
+# As information show filesystem usage stats
 echo -e "\n"
 df -h
 
