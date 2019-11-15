@@ -8,7 +8,7 @@ echo "Starting backup"
 date
 
 # Mount the backup disk
-mount -t hfsplus --rw /dev/sdb1 /mnt/backup/
+mount --rw /dev/sdb1 /mnt/backup/
 
 mountExitCode=$?
 
