@@ -2,7 +2,6 @@
 
 use strict;
 use warnings;
-use LWP::UserAgent;
 use Config::IniFiles;
 use Getopt::Long;
 Getopt::Long::Configure( "no_auto_abbrev" );
@@ -49,30 +48,14 @@ unless (open( LOG, ">>$logfile" ))
     exit 1;
 }
 
-# Create a new user agent (fake mozilla firefox to make the website
-# think it is a real browser
-my $ua = LWP::UserAgent->new( agent => "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:32.0) Gecko/20100101 Firefox/32.0" );
 
 # Get the date
 my $date = `date +"%Y-%m-%dT%H:%M:%S"`;
 chomp( $date );
 
-# And download the conthent from the website
-my $response = $ua->get( 'http://whatismyip.pw' );
-
-# Parse the result
-unless ($response->is_success)
-{
-    print LOG "$date : Ipcheck failed! Cannot get content of www.whatismyip.pw\n";
-    close LOG;
-    exit 1;
-}
-
-my $content = $response->decoded_content;
-
-$content =~ m/Your IP is\: (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/;
-
-my $current_ip = $1;
+# Get the current IP
+my $current_ip = `nslookup patklaey.internet-box.ch | awk -F': ' 'NR==6 { print \$2 } '`;
+chomp($current_ip);
 
 # Get the old ip address from the file
 if (-e $old_ip_file)
@@ -84,6 +67,7 @@ if (-e $old_ip_file)
     {
         # Send the mail
         my $mailer = Mail->new();
+        $mailer->setTo($mail_address);
         my $message = "Dear admin, The public IP of our home changed from $old_ip to $current_ip. Please update the bind configuration and switchplus nameserver in order to have a functional DNS.\n\nCheers your ip-check script";
         $message = "Subject: Our Public IP changed to $current_ip\n".$message;
         open( NEW, ">$old_ip_file" );
