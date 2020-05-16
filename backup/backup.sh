@@ -24,21 +24,21 @@ mkdir -p /root/db_backup
 
 # Save the owncloud directory
 echo -e "\nSaving owncloud directory..."
-rsync --verbose --archive -h /home/owncloud /mnt/backup/home/
+rsync --verbose --archive -h /data/owncloud /mnt/backup/home/
 
 # Save wiki database
 echo -e "\nSaving owncloud database..."
-mysqldump -u ${OWNCLOUD_DB_USER} -p"${OWNCLOUD_DB_PASSWORD}" --opt --quote-names --skip-set-charset --default-character-set=latin1 ${OWNCLOUD_DATABASE} > /mnt/backup/owncloud-utf.sql
-cp -p /mnt/backup/owncloud-utf.sql /root/db_backup/owncloud-utf.sql
+docker exec owncloud-db sh -c "mysqldump -u ${OWNCLOUD_DB_USER} -p'${OWNCLOUD_DB_PASSWORD}' --opt --quote-names --skip-set-charset --default-character-set=latin1 ${OWNCLOUD_DATABASE} > /backup/owncloud-utf.sql"
+cp -p /root/db_backup/owncloud-utf.sql /mnt/backup/owncloud-utf.sql
 
 # Save zermatt database
 echo -e "\nSaving zermatt database..."
-mysqldump -u ${ZERMATT_DB_USER} -p"${ZERMATT_DB_PASSWORD}" --opt --quote-names --skip-set-charset --default-character-set=latin1 ${ZERMATT_DATABASE} > /mnt/backup/zermatt-utf.sql
-cp -p /mnt/backup/zermatt-utf.sql /root/db_backup/zermatt-utf.sql
+docker exec zermatt-db sh -c "mysqldump -u ${ZERMATT_DB_USER} -p'${ZERMATT_DB_PASSWORD}' --opt --quote-names --skip-set-charset --default-character-set=latin1 ${ZERMATT_DATABASE} > /backup/zermatt-utf.sql"
+cp -p /root/db_backup/zermatt-utf.sql /mnt/backup/zermatt-utf.sql
 
 # Save the html directory
 echo -e "\nSaving html directory..."
-rsync --verbose --archive -h /home/html /mnt/backup/home/
+rsync --verbose --archive -h /data/html /mnt/backup/home/
 
 # Save all pictures
 echo -e "\nSaving pictures..."
@@ -46,32 +46,22 @@ rsync --verbose --archive -h /home/pat/Pictures /mnt/backup/home/pat/
 
 # Save wiki database
 echo -e "\nSaving wiki database..."
-mysqldump -u ${WIKI_DB_USER} -p"${WIKI_DB_PASSWORD}" --opt --quote-names --skip-set-charset --default-character-set=latin1 ${WIKI_DATABASE} > /mnt/backup/wiki-utf.sql
-cp -p /mnt/backup/wiki-utf.sql /root/db_backup/wiki-utf.sql
+docker exec mediawiki-db sh -c "mysqldump -u ${WIKI_DB_USER} -p'${WIKI_DB_PASSWORD}' --opt --quote-names --skip-set-charset --default-character-set=latin1 ${WIKI_DATABASE} > /backup/wiki-utf.sql"
+cp -p /root/db_backup/wiki-utf.sql /mnt/backup/wiki-utf.sql
 
 # Save blog database
 echo -e "\nSaving blog database..."
-mysqldump -u ${WORDPRESS_DB_USER} -p"${WORDPRESS_DB_PASSWORD}" --opt --quote-names --skip-set-charset --default-character-set=latin1 ${WORDPRESS_DATABASE} > /mnt/backup/wordpress-utf.sql
-cp -p /mnt/backup/wordpress-utf.sql /root/db_backup/wordpress-utf.sql
+docker exec wordpress-db sh -c "mysqldump -u ${WORDPRESS_DB_USER} -p'${WORDPRESS_DB_PASSWORD}' --opt --quote-names --skip-set-charset --default-character-set=latin1 ${WORDPRESS_DATABASE} > /backup/wordpress-utf.sql"
+cp -p /root/db_backup/wordpress-utf.sql /mnt/backup/wordpress-utf.sql
 
 # Save blog media
 echo -e "\nSaving blog media..."
-rsync --verbose --archive -h /home/blog-uploads /mnt/backup/home/
+rsync --verbose --archive -h /data/blog-uploads /mnt/backup/home/
 
 # Save config data
 echo -e "\nSaving /etc..."
 rsync --verbose --archive -h /etc /mnt/backup/config/
 
-# Save webapps
-echo -e "\nSaving webapps..."
-rsync --verbose --archive -h /var/www /mnt/backup/config/
-
-echo -e "\nSaving picapport DB..."
-rsync --verbose --archive -h /root/.picapport/db /mnt/backup/picapport/
-
-# Write the server image
-echo -e "\nSaving server image..."
-time dd if=/dev/mmcblk0 of=/mnt/backup/backup.img
 sync
 
 # As information show filesystem usage stats
