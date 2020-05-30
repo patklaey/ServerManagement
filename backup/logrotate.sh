@@ -1,8 +1,8 @@
 #!/bin/bash
 folderName=`date +'%b-%Y'`
 
-tar -zcvf /var/log/idrive/${folderName}-schedule.tar.gz /root/idrive/Backup/Scheduled/LOGS/*
-tar -zcvf /var/log/idrive/${folderName}-manual.tar.gz /root/idrive/Backup/Manual/LOGS/*
+tar -zcvf /var/log/idrive/${folderName}-schedule.tar.gz /var/log/idrive/*_Scheduled
+tar -zcvf /var/log/idrive/${folderName}-manual.tar.gz /var/log/idrive/*_Manual
 
-rm /root/idrive/Backup/Scheduled/LOGS/*
-rm /root/idrive/Backup/Manual/LOGS/*
+rm /var/log/idrive/*_Scheduled
+rm /var/log/idrive/*_Manual
