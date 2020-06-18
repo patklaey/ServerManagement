@@ -57,6 +57,13 @@ chomp( $date );
 my $current_ip = `nslookup patklaey.internet-box.ch | awk -F': ' 'NR==6 { print \$2 } '`;
 chomp($current_ip);
 
+if( ! defined $current_ip || $current_ip eq "" ) {
+    my $nslookup = `nslookup patklaey.internet-box.ch`;
+    print LOG "$date : IP could not be retrieved. Current nslookup result is: $nslookup";
+    close LOG;
+    exit 0;
+}
+
 # Get the old ip address from the file
 if (-e $old_ip_file)
 {
@@ -76,7 +83,7 @@ if (-e $old_ip_file)
         $mailer->send( $message );
         if ($mailer->error())
         {
-            print LOG "Mail could not be sent: ".$mailer->error()."\n";
+            print LOG "$date : Mail could not be sent: ".$mailer->error()."\n";
         } else
         {
             print LOG "$date : IP changed from $old_ip to $current_ip. Mail sent";
