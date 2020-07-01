@@ -84,7 +84,7 @@ if (!localBackupOk()) {
         $config->setval("Backup", "LocalSuccess", 0);
         $config->RewriteConfig();
     } else {
-        print "$date: Local backup still not sucessful... Not sending notification as already notified\n";
+        print "$date: Local backup still not successful... Not sending notification as already notified\n";
     }
 } else {
     $config->setval("Backup", "LocalSuccess", 1);
@@ -96,11 +96,11 @@ if (!remoteBackupOk()) {
         $problem = 1;
         $subject .= "Remote Backup ";
         $message .= "Last remote backup was not successful or not run, please check the following log:\n";
-        $message .= `ls -l $remoteBackupLogFileLocation | tail -n2` . "\n";
+        $message .= `ls -l $remoteBackupLogFileLocation | grep -v tar.gz | tail -n2` . "\n";
         $config->setval("Backup", "RemoteSuccess", 0);
         $config->RewriteConfig();
     } else {
-        print "$date: Remote backup still not sucessful... Not sending notification as already notified\n";
+        print "$date: Remote backup still not successful... Not sending notification as already notified\n";
     }
 } else {
     $config->setval("Backup", "RemoteSuccess", 1);
@@ -151,36 +151,36 @@ sub isFailtoban {
 }
 
 sub remoteBackupOk {
-    my $days_diff = 1;
-    my $lastExecutionState = $2;
-    my $last_execute_date = $1;
-    my $lastLogFile = `ls -l $remoteBackupLogFileLocation | tail -n1 | awk '{print \$9}'`;
-    if( $lastLogFile !~ m/^(\d+)_(\w+)$/){
-        if( $lastLogFile =~ m/^\d+$/){
-            print "$date: Remote backup is still in progress, checking from yesterday...\n";
-            $lastLogFile = `ls -l $remoteBackupLogFileLocation | tail -n2 | head -n1 | awk '{print \$9}'`;
-            $days_diff = 2;
-            if( $lastLogFile !~ m/^(\d+)_(\w+)$/){
+    my $hours_diff = 2;
+    my $lastExecutionState = "";
+    my $last_execute_date = "";
+    my $lastLogFile = `ls -l $remoteBackupLogFileLocation | grep -v tar.gz | tail -n1 | awk '{print \$9}'`;
+    if( $lastLogFile !~ m/^(\d+)_(\w+)_(\w+)$/) {
+        print "$date: Something went wrong, last logfile not in expected format %timestamp%-%Success|Failure%-%Scheduled|Manual% but: $lastLogFile\n";
+        return 0;
+    } else {
+        $lastExecutionState = $2;
+        $last_execute_date = $1;
+        if ($lastExecutionState eq "Running") {
+            print "$date: Remote backup is still in progress, checking previous...\n";
+            $lastLogFile = `ls -l $remoteBackupLogFileLocation | grep -v tar.gz | tail -n2 | head -n1 | awk '{print \$9}'`;
+            $hours_diff = 4;
+            if ($lastLogFile !~ m/^(\d+)_(\w+)_(\w+)$/) {
+                print "$date: Something went wrong, logfile not in expected format %timestamp%-%Success|Failure%-%Scheduled|Manual% but: $lastLogFile\n";
                 return 0;
             } else {
                 $lastExecutionState = $2;
                 $last_execute_date = $1;
             }
         }
-        else {
-            return 0;
-        }
-    } else {
-        $lastExecutionState = $2;
-        $last_execute_date = $1;
     }
 
-    if( $lastExecutionState ne "SUCCESS") {
+    if( $lastExecutionState ne "Success") {
         return 0;
     }
 
     my $last_remote_finish = $remote_backup_parser->parse_datetime($last_execute_date);
-    $last_remote_finish->add(days => $days_diff);
+    $last_remote_finish->add(hours => $hours_diff);
     my $currentTimeUTC = DateTime->now(time_zone => $utc);
     my $timeDiff = DateTime->compare($last_remote_finish, $currentTimeUTC);
     if ($timeDiff >= 0) {
