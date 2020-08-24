@@ -22,6 +22,7 @@ my @reposToCheck = $config->val("Config", "Images");
 my $mailMessage = "";
 
 foreach my $repository (@reposToCheck) {
+    print "$date: Checking versions for $repository\m^^";
     my $currentVersion = getCurrentVersion($repository);
     my $latestVersion = getLatestVersion($repository);
     if( defined $currentVersion && defined $latestVersion) {
