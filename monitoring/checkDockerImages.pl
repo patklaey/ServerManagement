@@ -61,7 +61,6 @@ sub getLatestVersion {
 
     do {
         my $request = HTTP::Request->new(GET => $url);
-        print "Request: " . $request . "\n";
         my $response = $userAgent->request($request);
         my $hash = decode_json($response->content);
 
