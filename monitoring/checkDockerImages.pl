@@ -2,10 +2,11 @@
 use strict;
 use warnings FATAL => 'all';
 
-use LWP::Curl;
+use HTTP::Request;
 use JSON::MaybeXS qw(decode_json);
 use Config::IniFiles;
 use File::Basename;
+use LWP::UserAgent;
 
 my $dirname = dirname(__FILE__);
 my $config = Config::IniFiles->new (-file => "$dirname/checkDockerImages.conf");
@@ -13,7 +14,7 @@ my $config = Config::IniFiles->new (-file => "$dirname/checkDockerImages.conf");
 my $date = `date +"%Y-%m-%d %H:%M"`;
 chomp($date);
 
-my $lwpcurl = LWP::Curl->new();
+my $userAgent = LWP::UserAgent->new;
 my $page_size = 100;
 
 my @reposToCheck = $config->val("Config", "Images");
@@ -59,9 +60,10 @@ sub getLatestVersion {
     my $url = "https://registry.hub.docker.com/v2/repositories/$repo/tags?page_size=$page_size";
 
     do {
-        my $content = $lwpcurl->get($url);
-
-        my $hash = decode_json($content);
+        my $request = HTTP::Request->new(GET => $url);
+        print "Request: " . $request . "\n";
+        my $response = $userAgent->request($request);
+        my $hash = decode_json($response->content);
 
         push @array, grep {$_ =~ /^\d+\.\d+.\d+$/} map {$_->{name}} grep {grep {$_->{architecture} eq "arm"} @{$_->{images}}} @{$hash->{results}};
 
