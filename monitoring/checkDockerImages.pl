@@ -8,6 +8,9 @@ use Config::IniFiles;
 use File::Basename;
 use LWP::UserAgent;
 
+use lib '/root/scripts/utils';
+use Mail;
+
 my $dirname = dirname(__FILE__);
 my $config = Config::IniFiles->new (-file => "$dirname/checkDockerImages.conf");
 
