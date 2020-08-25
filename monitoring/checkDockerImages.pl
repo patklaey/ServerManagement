@@ -45,7 +45,7 @@ foreach my $repository (@reposToCheck) {
 
 if($mailMessage ne "") {
     my $mailer = Mail->new();
-    my $message_to_send = "Subject: New Docker Versions Available" . $mailMessage;
+    my $message_to_send = "Subject: New Docker Versions Available\n" . $mailMessage;
     $mailer->send($message_to_send);
 }
 
