@@ -73,7 +73,7 @@ sub getLatestVersion {
         my $response = $userAgent->request($request);
         my $hash = decode_json($response->content);
 
-        push @array, grep {$_ =~ /^\d+\.\d+.\d+$/} map {$_->{name}} grep {grep {$_->{architecture} eq "arm"} @{$_->{images}}} @{$hash->{results}};
+        push @array, grep {$_ =~ /^v?\d+\.\d+.\d+$/} map {$_->{name}} grep {grep {$_->{architecture} eq "arm"} @{$_->{images}}} @{$hash->{results}};
 
         $url = $hash->{next};
 
