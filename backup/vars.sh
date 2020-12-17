@@ -14,3 +14,7 @@ readonly OWNCLOUD_DATABASE=""
 readonly ZERMATT_DB_USER=""
 readonly ZERMATT_DB_PASSWORD=""
 readonly ZERMATT_DATABASE=""
+
+readonly BRANDI_DB_USER=""
+readonly BRANDI_DB_PASSWORD=""
+readonly BRANDI_DATABASE=""
