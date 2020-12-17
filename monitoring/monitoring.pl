@@ -61,11 +61,9 @@ my $problem = 0;
 
 my @load = getCpuUsage();
 if ($load[0] > 1 || $load[1] > 0.75 || $load[2] > 0.5) {
-    #if(!isFailtoban()) {
-        $problem = 1;
-        $subject .= "CPU ";
-        $message .= `top -n 1 -b` . "\n";
-    #}
+    $problem = 1;
+    $subject .= "CPU ";
+    $message .= `top -n 1 -b` . "\n";
 }
 
 if (getFreeMemory() < 200000) {
@@ -129,25 +127,6 @@ if ($problem == 1) {
 else {
     resetSMSTimout();
     print "$date: Monitoring script has no problems detected, all smooth here!\n"
-}
-
-sub isFailtoban {
-
-    my $consuming_process = `top -n 1 -b | head -n 8 | tail -n 1`;
-    if($consuming_process =~ m/fail2ban-client|fail2ban-c\+/) {
-        print "$date: Fail2ban client is running crazy again, going to kill it\n";
-        my $pid = `ps aux | grep fail2ban-client | grep -v grep | grep python | awk '{print \$2}'`;
-        chomp($pid);
-        print "$date: Going to kill fail2ban process with pid '$pid'";
-        system("kill -9 $pid");
-        my $pid_after_kill = `ps aux | grep fail2ban-client | grep -v grep | grep python | awk '{print \$2}'`;
-        if($pid_after_kill) {
-            print "$date: Could not kill fail2ban-client... something is wrong...\n";
-            return 0;
-        }
-        return 1;
-    }
-    return 0;
 }
 
 sub remoteBackupOk {
