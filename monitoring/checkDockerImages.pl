@@ -27,7 +27,6 @@ my $mailMessage = "";
 print "$date: Checking the following repos for newer versions: @reposToCheck\n";
 
 foreach my $repository (@reposToCheck) {
-    print "$date: $repository \n";
     my $currentVersion = getCurrentVersion($repository);
     my $latestVersion = getLatestVersion($repository);
     if( defined $currentVersion && defined $latestVersion) {
