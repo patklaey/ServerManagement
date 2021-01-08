@@ -27,6 +27,7 @@ my $mailMessage = "";
 print "$date: Checking the following repos for newer versions: @reposToCheck\n";
 
 foreach my $repository (@reposToCheck) {
+    print "$date: $repository \n";
     my $currentVersion = getCurrentVersion($repository);
     my $latestVersion = getLatestVersion($repository);
     if( defined $currentVersion && defined $latestVersion) {
@@ -78,6 +79,34 @@ sub getLatestVersion {
         $url = $hash->{next};
 
     } while ($url);
-    return $array[0];
+    my @sortedArray = sort version_sort @array;
+    return $sortedArray[0];
 }
 
+sub version_sort {
+    my @aVersion = split /\./, $a;
+    my @bVersion = split /\./, $b;
+    $aVersion[0] =~ /^v?(\d+)$/;
+    $aVersion[0] = $1;
+    $bVersion[0] =~ /^v?(\d+)$/;
+    $bVersion[0] = $1;
+    if( $aVersion[0] > $bVersion[0]) {
+        return -1;
+    } elsif( $aVersion[0] < $bVersion[0]) {
+        return 1;
+    } else {
+        if( $aVersion[1] > $bVersion[1]) {
+            return -1;
+        } elsif( $aVersion[1] < $bVersion[1]) {
+            return 1;
+        } else {
+            if( $aVersion[2] > $bVersion[2]) {
+                return -1;
+            } elsif( $aVersion[2] < $bVersion[2]) {
+                return 1;
+            } else {
+                return 0;
+            }
+        }
+    }
+}
