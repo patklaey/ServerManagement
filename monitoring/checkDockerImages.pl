@@ -58,8 +58,8 @@ sub isPatchDiffOnly{
     my $current = shift;
     my $latest = shift;
 
-    my @currentArray = $current.split(".");
-    my @latestArray = $latest.split(".");
+    my @currentArray = split /\./, $current;
+    my @latestArray = split /\./, $latest;
     if( $currentArray[0] == $latestArray[0] && $currentArray[1] == $latestArray[1] ) {
         return 1;
     }
