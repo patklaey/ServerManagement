@@ -21,6 +21,7 @@ my $userAgent = LWP::UserAgent->new;
 my $page_size = 100;
 
 my @reposToCheck = $config->val("Config", "Images");
+my $alertOnPatchDiff = $config->val("Config", "AlertOnPatchDiff");
 
 my $mailMessage = "";
 
@@ -33,9 +34,13 @@ foreach my $repository (@reposToCheck) {
         if($currentVersion eq $latestVersion) {
             print "$date: $repository has latest version installed ($currentVersion)\n";
         } else {
-            my $message = "$repository has a newer version available ($latestVersion) than currently installed ($currentVersion)\n";
-            print "$date: $message";
-            $mailMessage .= $message;
+            if( isPatchDiffOnly($currentVersion, $latestVersion) == 0 || $alertOnPatchDiff == 1) {
+                my $message = "$repository has a newer version available ($latestVersion) than currently installed ($currentVersion)\n";
+                print "$date: $message";
+                $mailMessage .= $message;
+            } else {
+                print "$date: $repository only has patch diff only: current $currentVersion, latest $latestVersion. Not alerting\n";
+            }
         }
     }
     else {
@@ -47,6 +52,18 @@ if($mailMessage ne "") {
     my $mailer = Mail->new();
     my $message_to_send = "Subject: New Docker Versions Available\n" . $mailMessage;
     $mailer->send($message_to_send);
+}
+
+sub isPatchDiffOnly{
+    my $current = shift;
+    my $latest = shift;
+
+    my @currentArray = $current.split(".");
+    my @latestArray = $latest.split(".");
+    if( $currentArray[0] == $latestArray[0] && $currentArray[1] == $latestArray[1] ) {
+        return 1;
+    }
+    return 0;
 }
 
 sub getCurrentVersion {
