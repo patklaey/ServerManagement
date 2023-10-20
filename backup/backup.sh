@@ -8,7 +8,7 @@ echo "Starting backup"
 date
 
 # Mount the backup disk
-mount --rw /dev/sdb1 /mnt/backup/
+mount --rw UUID=${BACKUP_DISK_UUID} /mnt/backup/
 
 mountExitCode=$?
 
