@@ -49,6 +49,7 @@ foreach my $repository (@reposToCheck) {
 }
 
 if($mailMessage ne "") {
+    print "Sending mail now\n";
     my $mailer = Mail->new();
     my $message_to_send = "Subject: New Docker Versions Available\n" . $mailMessage;
     $mailer->send($message_to_send);
@@ -60,7 +61,11 @@ sub isPatchDiffOnly{
 
     my @currentArray = split /\./, $current;
     my @latestArray = split /\./, $latest;
-    if( $currentArray[0] == $latestArray[0] && $currentArray[1] == $latestArray[1] ) {
+    $currentArray[0] =~ /v?(\d+)/;
+    my $currentMajor = $1;
+    $latestArray[0] =~ /v?(\d+)/;
+    my $latestMajor = $1;
+    if( $currentMajor == $latestMajor && $currentArray[1] == $latestArray[1] ) {
         return 1;
     }
     return 0;
@@ -90,7 +95,7 @@ sub getLatestVersion {
         my $response = $userAgent->request($request);
         my $hash = decode_json($response->content);
 
-        push @array, grep {$_ =~ /^v?\d+\.\d+.\d+$/} map {$_->{name}} grep {grep {$_->{architecture} eq "arm"} @{$_->{images}}} @{$hash->{results}};
+        push @array, grep {$_ =~ /^v?\d+\.\d+.\d+$/} map {$_->{name}} grep {grep {$_->{architecture} =~ /arm/ } @{$_->{images}}} @{$hash->{results}};
 
         $url = $hash->{next};
 
