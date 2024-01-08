@@ -74,9 +74,12 @@ sub isPatchDiffOnly{
 sub getCurrentVersion {
     my $repo = shift;
     $repo =~ s/^library\///;
-    # Exception for wordpress, replace the official version with mine
+    # Exception for wordpress and nginx, replace the official version with mine
     if ( $repo eq "wordpress") {
         $repo = "patklaey/wordpress"
+    }
+    if ($repo eq "nginx") {
+        $repo = "patklaey/nginx"
     }
     my @localVersions = qx(docker images $repo --format {{.Tag}} | grep -v latest);
     chomp(@localVersions);
