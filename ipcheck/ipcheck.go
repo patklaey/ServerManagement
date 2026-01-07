@@ -18,6 +18,8 @@ import (
 
 const PagerDutySection = "Pagerduty"
 
+var now string
+
 func main() {
 	// ----- CLI flags -----
 	configPath := flag.String("config", "", "Path to configuration file")
@@ -61,7 +63,7 @@ func main() {
 
 	logger := log.New(logFH, "", 0)
 
-	now := time.Now().Format("2006-01-02T15:04:05")
+	now = time.Now().Format("2006-01-02T15:04:05")
 
 	// ----- Resolve current IP -----
 	currentIP, err := resolveIP("patklaey.internet-box.ch")
@@ -122,7 +124,7 @@ func createIncident(oldIp string, newIp string, cfg *ini.File, logger *log.Logge
 	if err != nil {
 		return err
 	}
-	logger.Printf("Incident successfully created %v\n", incident)
+	logger.Printf("%s : Incident successfully created %v\n", now, incident)
 	return nil
 
 }
