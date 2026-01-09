@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -12,13 +11,18 @@ import (
 	"strings"
 	"time"
 
-	pagerduty "github.com/PagerDuty/go-pagerduty"
-	"gopkg.in/ini.v1"
+	"ServerManagement/utils"
+
+	"gopkg.in/yaml.v3"
 )
 
-const PagerDutySection = "Pagerduty"
-
 var now string
+
+type configuration struct {
+	LogFilePath     string                 `yaml:"logFilePath"`
+	OldIpFilePath   string                 `yaml:"oldIpFilePath"`
+	PagerDutyConfig *utils.PagerdutyConfig `yaml:"pagerduty"`
+}
 
 func main() {
 	// ----- CLI flags -----
@@ -42,13 +46,14 @@ func main() {
 	}
 
 	// ----- Load INI config -----
-	cfg, err := ini.Load(*configPath)
-	if err != nil {
-		log.Fatalf("Failed to load config file: %v", err)
+	config := loadConfig(*configPath)
+	if config == nil {
+		log.Fatalf("Failed to load config file")
+		os.Exit(1)
 	}
 
-	logfile := cfg.Section("General").Key("Logfile").String()
-	oldIPFile := cfg.Section("General").Key("OldIpFile").String()
+	logfile := config.LogFilePath
+	oldIPFile := config.OldIpFilePath
 
 	if logfile == "" || oldIPFile == "" {
 		log.Fatal("Missing required configuration values")
@@ -87,46 +92,24 @@ func main() {
 	}
 
 	if oldIP != currentIP {
-		createIncident(oldIP, currentIP, cfg, logger)
+		options := utils.IncidentOptions{
+			BodyDetails: fmt.Sprintf("The public IP of our home changed from %s to %s. Please update the bind configuration and switchplus nameserver in order to have a functional DNS", oldIP, currentIP),
+			Title:       "New IP Address",
+			Urgency:     utils.UrgencyLow,
+		}
+		incident, err := utils.CreateIncident(options, config.PagerDutyConfig, logger)
+		if err != nil {
+			logger.Printf("%s : Failed to create incident: %s\n", now, err)
+		} else {
+			logger.Printf("%s : Incident successfully created %v\n", now, incident)
+		}
 
-		if err := writeIP(oldIPFile, currentIP); err != nil {
+		if err = writeIP(oldIPFile, currentIP); err != nil {
 			log.Fatalf("Failed to update IP file: %v", err)
 		}
 	} else {
 		logger.Printf("%s : Ipcheck successful, still the same ip: %s\n", now, currentIP)
 	}
-}
-
-func createIncident(oldIp string, newIp string, cfg *ini.File, logger *log.Logger) error {
-	authtoken := cfg.Section(PagerDutySection).Key("AuthToken").String()
-	serviceId := cfg.Section(PagerDutySection).Key("ServiceId").String()
-
-	serviceRef := pagerduty.APIReference{
-		ID:   serviceId,
-		Type: "service_reference",
-	}
-
-	incidentBody := pagerduty.APIDetails{
-		Type:    "incident_body",
-		Details: fmt.Sprintf("The public IP of our home changed from %s to %s. Please update the bind configuration and switchplus nameserver in order to have a functional DNS", oldIp, newIp),
-	}
-
-	ctx := context.Background()
-	client := pagerduty.NewClient(authtoken)
-	options := pagerduty.CreateIncidentOptions{
-		Title:   "New IP Address",
-		Service: &serviceRef,
-		Urgency: "low",
-		Body:    &incidentBody,
-	}
-	from := cfg.Section(PagerDutySection).Key("From").String()
-	incident, err := client.CreateIncidentWithContext(ctx, from, &options)
-	if err != nil {
-		return err
-	}
-	logger.Printf("%s : Incident successfully created %v\n", now, incident)
-	return nil
-
 }
 
 // resolveIP resolves the first IPv4 address for a hostname
@@ -162,4 +145,21 @@ func readOldIP(path string) (string, error) {
 
 func writeIP(path, ip string) error {
 	return os.WriteFile(path, []byte(ip), 0644)
+}
+
+func loadConfig(configFile string) *configuration {
+	var config configuration
+
+	yfile, err := os.ReadFile(configFile)
+	if err != nil {
+		fmt.Println("Could not read config file: ", err)
+		return nil
+	}
+
+	err = yaml.Unmarshal(yfile, &config)
+	if err != nil {
+		fmt.Println("Error loading configuration: ", err)
+		return nil
+	}
+	return &config
 }
