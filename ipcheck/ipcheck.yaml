@@ -1,6 +1,6 @@
-logFilePath: ./ipcheck.log
-oldIpFilePath: ./oldIp.txt
+logFilePath: 
+oldIpFilePath: 
 pagerduty:
-  authToken: e+JUyftmovA3vDdHHurA
-  serviceId: PNY3RZ7
-  from: pat@247.ch
+  authToken: 
+  serviceId: 
+  from: 
