@@ -1,0 +1,5 @@
+images:
+  - library/wordpress
+  - owncloud/server
+alertOnPatchDiff: 0
+mailConfigPath: "/path/to/ServerManagement/utils/mail.yaml"
