@@ -31,20 +31,6 @@ echo -e "\nSaving owncloud database..."
 docker exec owncloud-db sh -c "mysqldump -u ${OWNCLOUD_DB_USER} -p'${OWNCLOUD_DB_PASSWORD}' --opt --quote-names --skip-set-charset --default-character-set=latin1 ${OWNCLOUD_DATABASE} > /backup/owncloud-utf.sql"
 cp -p /root/db_backup/owncloud-utf.sql /mnt/backup/owncloud-utf.sql
 
-# Save zermatt database
-echo -e "\nSaving zermatt database..."
-docker exec zermatt-db sh -c "mysqldump -u ${ZERMATT_DB_USER} -p'${ZERMATT_DB_PASSWORD}' --opt --quote-names --skip-set-charset --default-character-set=latin1 ${ZERMATT_DATABASE} > /backup/zermatt-utf.sql"
-cp -p /root/db_backup/zermatt-utf.sql /mnt/backup/zermatt-utf.sql
-
-# Save zermatt database
-echo -e "\nSaving brandi database..."
-docker exec brandi-db sh -c "mysqldump -u ${BRANDI_DB_USER} -p'${BRANDI_DB_PASSWORD}' --opt --quote-names --skip-set-charset --default-character-set=latin1 ${BRANDI_DATABASE} > /backup/brandi-utf.sql"
-cp -p /root/db_backup/brandi-utf.sql /mnt/backup/brandi-utf.sql
-
-# Save the html directory
-echo -e "\nSaving html directory..."
-rsync --verbose --archive -h /data/html /mnt/backup/home/
-
 # Save all pictures
 echo -e "\nSaving pictures..."
 rsync --verbose --archive -h /home/pat/Pictures /mnt/backup/home/pat/
@@ -58,6 +44,11 @@ cp -p /root/db_backup/wiki-utf.sql /mnt/backup/wiki-utf.sql
 echo -e "\nSaving blog database..."
 docker exec wordpress-db sh -c "mysqldump -u ${WORDPRESS_DB_USER} -p'${WORDPRESS_DB_PASSWORD}' --opt --quote-names --skip-set-charset --default-character-set=latin1 ${WORDPRESS_DATABASE} > /backup/wordpress-utf.sql"
 cp -p /root/db_backup/wordpress-utf.sql /mnt/backup/wordpress-utf.sql
+
+# Save blog volumes
+docker-compose -f /root/docker/docker-wordpress/docker-compose.yml stop
+rsync --verbose --archive -h /data/docker-volumes/wordpress-database /mnt/backup/docker-volumes
+docker-compose -f /root/docker/docker-wordpress/docker-compose.yml start
 
 # Save blog media
 echo -e "\nSaving blog media..."
