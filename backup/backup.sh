@@ -22,14 +22,20 @@ fi
 # Create DB backup directory if it does not exist
 mkdir -p /root/db_backup
 
-# Save the owncloud directory
-echo -e "\nSaving owncloud directory..."
-rsync --verbose --archive -h /data/owncloud /mnt/backup/home/
-
-# Save wiki database
+# Save owncloud database
 echo -e "\nSaving owncloud database..."
 docker exec owncloud-db sh -c "mysqldump -u ${OWNCLOUD_DB_USER} -p'${OWNCLOUD_DB_PASSWORD}' --opt --quote-names --skip-set-charset --default-character-set=latin1 ${OWNCLOUD_DATABASE} > /backup/owncloud-utf.sql"
 cp -p /root/db_backup/owncloud-utf.sql /mnt/backup/owncloud-utf.sql
+
+# Save the owncloud directory
+docker-compose --env-file /root/docker/docker-owncloud/.env -f /root/docker/docker-owncloud/docker-compose.yml stop
+echo -e "\nSaving owncloud directory..."
+rsync --verbose --archive -h /data/owncloud /mnt/backup/home/
+
+# Save owncloud docker volumes
+rsync --verbose --archive -h /data/docker-volumes/owncloud-database /mnt/backup/docker-volumes
+rsync --verbose --archive -h /data/docker-volumes/owncloud-backup /mnt/backup/docker-volumes
+docker-compose --env-file /root/docker/docker-owncloud/.env -f /root/docker/docker-owncloud/docker-compose.yml start
 
 # Save all pictures
 echo -e "\nSaving pictures..."
@@ -46,13 +52,13 @@ docker exec wordpress-db sh -c "mysqldump -u ${WORDPRESS_DB_USER} -p'${WORDPRESS
 cp -p /root/db_backup/wordpress-utf.sql /mnt/backup/wordpress-utf.sql
 
 # Save blog volumes
-docker-compose -f /root/docker/docker-wordpress/docker-compose.yml stop
+docker-compose --env-file /root/docker/docker-wordpress/.env -f /root/docker/docker-wordpress/docker-compose.yml stop
 rsync --verbose --archive -h /data/docker-volumes/wordpress-database /mnt/backup/docker-volumes
-docker-compose -f /root/docker/docker-wordpress/docker-compose.yml start
 
 # Save blog media
 echo -e "\nSaving blog media..."
 rsync --verbose --archive -h /data/blog-uploads /mnt/backup/home/
+docker-compose --env-file /root/docker/docker-wordpress/.env -f /root/docker/docker-wordpress/docker-compose.yml start
 
 # Save config data
 echo -e "\nSaving /etc..."
