@@ -28,14 +28,14 @@ docker exec owncloud-db sh -c "mysqldump -u ${OWNCLOUD_DB_USER} -p'${OWNCLOUD_DB
 cp -p /root/db_backup/owncloud-utf.sql /mnt/backup/owncloud-utf.sql
 
 # Save the owncloud directory
-docker-compose --env-file /root/docker/docker-owncloud/.env -f /root/docker/docker-owncloud/docker-compose.yml stop
+docker-compose --env-file /data/operations/docker/docker-owncloud/.env -f /data/operations/docker/docker-owncloud/docker-compose.yml stop
 echo -e "\nSaving owncloud directory..."
 rsync --verbose --archive -h /data/owncloud /mnt/backup/home/
 
 # Save owncloud docker volumes
 rsync --verbose --archive -h /data/docker-volumes/owncloud-database /mnt/backup/docker-volumes
 rsync --verbose --archive -h /data/docker-volumes/owncloud-backup /mnt/backup/docker-volumes
-docker-compose --env-file /root/docker/docker-owncloud/.env -f /root/docker/docker-owncloud/docker-compose.yml start
+docker-compose --env-file /data/operations/docker/docker-owncloud/.env -f /data/operations/docker/docker-owncloud/docker-compose.yml start
 
 # Save all pictures
 echo -e "\nSaving pictures..."
@@ -52,13 +52,13 @@ docker exec wordpress-db sh -c "mysqldump -u ${WORDPRESS_DB_USER} -p'${WORDPRESS
 cp -p /root/db_backup/wordpress-utf.sql /mnt/backup/wordpress-utf.sql
 
 # Save blog volumes
-docker-compose --env-file /root/docker/docker-wordpress/.env -f /root/docker/docker-wordpress/docker-compose.yml stop
+docker-compose --env-file /data/operations/docker/docker-wordpress/.env -f /data/operations/docker/docker-wordpress/docker-compose.yml stop
 rsync --verbose --archive -h /data/docker-volumes/wordpress-database /mnt/backup/docker-volumes
 
 # Save blog media
 echo -e "\nSaving blog media..."
 rsync --verbose --archive -h /data/blog-uploads /mnt/backup/home/
-docker-compose --env-file /root/docker/docker-wordpress/.env -f /root/docker/docker-wordpress/docker-compose.yml start
+docker-compose --env-file /data/operations/docker/docker-wordpress/.env -f /data/operations/docker/docker-wordpress/docker-compose.yml start
 
 # Save config data
 echo -e "\nSaving /etc..."
@@ -67,6 +67,10 @@ rsync --verbose --archive -h /etc /mnt/backup/config/
 # Save root data
 echo -e "\nSaving /root..."
 rsync --verbose --archive -h /root /mnt/backup/root/
+
+# Save operations data
+echo -e "\nSaving /data/operations..."
+rsync --verbose --archive -h /data/operations /mnt/backup/operations/
 
 sync
 
