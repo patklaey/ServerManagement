@@ -1,5 +1,12 @@
 images:
-  - library/wordpress
-  - owncloud/server
-alertOnPatchDiff: 0
+  - name: library/wordpress
+    alertOnPatchDiff: true
+    upgradeOnPatchDiff: false
+  - name: owncloud/server
+    alertOnPatchDiff: true
+    upgradeOnPatchDiff: false
+  - name: nginx
+    alertOnPatchDiff: true
+    upgradeOnPatchDiff: true
+    upgradeScript: "/path/to/upgrade_nginx.sh -f fromVersionNumber -t toVersionNumber"
 mailConfigPath: "/path/to/ServerManagement/utils/mail.yaml"

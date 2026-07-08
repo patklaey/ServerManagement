@@ -17,6 +17,8 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/samber/lo"
 )
 
 const (
@@ -24,9 +26,14 @@ const (
 )
 
 type Config struct {
-	Images           []string `yaml:"images"`
-	AlertOnPatchDiff int      `yaml:"alertOnPatchDiff"`
-	MailConfigPath   string   `yaml:"mailConfigPath"`
+	Images         []*ImageConfig `yaml:"images"`
+	MailConfigPath string         `yaml:"mailConfigPath"`
+}
+type ImageConfig struct {
+	Name               string `yaml:"name"`
+	AlertOnPatchDiff   bool   `yaml:"alertOnPatchDiff"`
+	UpgradeOnPatchDiff bool   `yaml:"upgradeOnPatchDiff"`
+	UpgradeScript      string `yaml:"upgradeScript,omitempty"`
 }
 
 type Image struct {
@@ -43,6 +50,11 @@ type DockerTagResponse struct {
 	Results []*Result `json:"results"`
 }
 
+var (
+	date        string
+	mailMessage bytes.Buffer
+)
+
 func main() {
 	exe, err := os.Executable()
 	if err != nil {
@@ -57,40 +69,57 @@ func main() {
 	}
 
 	repos := cfg.Images
-	alertOnPatchDiff := cfg.AlertOnPatchDiff == 1
-
 	date := time.Now().Format("2006-01-02 15:04")
-	fmt.Printf("%s: Checking the following repos for newer versions: %s\n",
-		date, strings.Join(repos, " "))
-
-	var mailMessage bytes.Buffer
+	fmt.Printf("%s: Checking the following repos for newer versions:\n%s", date, lo.Reduce(repos, func(agg string, item *ImageConfig, _ int) string {
+		return agg + "  " + item.Name + "\n"
+	}, ""))
 
 	for _, repo := range repos {
-		current := getCurrentVersion(repo)
-		latest := getLatestVersion(repo)
+		current := getCurrentVersion(repo.Name)
+		latest := getLatestVersion(repo.Name)
 
 		if current == "" || latest == "" {
-			fmt.Printf("%s: %s either current or latest version not defined\n", date, repo)
+			fmt.Printf("%s: %s either current or latest version not defined\n", date, repo.Name)
 			continue
 		}
 
 		if current == latest {
-			fmt.Printf("%s: %s has latest version installed (%s)\n", date, repo, current)
+			fmt.Printf("%s: %s has latest version installed (%s)\n", date, repo.Name, current)
 			continue
 		}
 
-		if !isPatchDiffOnly(current, latest) || alertOnPatchDiff {
-			msg := fmt.Sprintf(
-				"%s has a newer version available (%s) than currently installed (%s)\n",
-				repo, latest, current,
-			)
-			fmt.Printf("%s: %s", date, msg)
-			mailMessage.WriteString(msg)
+		if isPatchDiffOnly(current, latest) {
+			if repo.UpgradeOnPatchDiff && repo.UpgradeScript != "" {
+				upgradeCmd := strings.ReplaceAll(repo.UpgradeScript, "fromVersionNumber", current)
+				upgradeCmd = strings.ReplaceAll(upgradeCmd, "toVersionNumber", latest)
+
+				fmt.Printf("%s: %s has a newer version available (%s) than currently installed (%s). Upgrading using script: %s\n",
+					date, repo.Name, latest, current, upgradeCmd)
+
+				cmd := exec.Command("bash", "-c", upgradeCmd)
+				output, err := cmd.CombinedOutput()
+				messageForMail := ""
+				if err != nil {
+					messageForMail = fmt.Sprintf("%s: Error occurred while upgrading %s: %v\n", date, repo.Name, err)
+					mailMessage.WriteString(messageForMail)
+					fmt.Printf("%s", messageForMail)
+					fmt.Printf("Output: %s\n", string(output))
+				} else {
+					messageForMail = fmt.Sprintf("%s: Successfully upgraded %s from %s to %s\n", date, repo.Name, current, latest)
+					mailMessage.WriteString(messageForMail)
+					fmt.Printf("%s", messageForMail)
+					fmt.Printf("Output: %s\n", string(output))
+				}
+			} else if repo.AlertOnPatchDiff {
+				addToAlertMessage(repo.Name, current, latest)
+			} else {
+				fmt.Printf(
+					"%s: %s only has patch diff: current %s, latest %s. Not alerting\n",
+					date, repo.Name, current, latest,
+				)
+			}
 		} else {
-			fmt.Printf(
-				"%s: %s only has patch diff: current %s, latest %s. Not alerting\n",
-				date, repo, current, latest,
-			)
+			addToAlertMessage(repo.Name, current, latest)
 		}
 	}
 
@@ -113,6 +142,14 @@ func main() {
 }
 
 // ---------------- helpers ----------------
+func addToAlertMessage(repoName, current, latest string) {
+	msg := fmt.Sprintf(
+		"%s has a newer version available (%s) than currently installed (%s)\n",
+		repoName, latest, current,
+	)
+	fmt.Printf("%s: %s", date, msg)
+	mailMessage.WriteString(msg)
+}
 
 func isPatchDiffOnly(current, latest string) bool {
 	c := parseVersion(current)
