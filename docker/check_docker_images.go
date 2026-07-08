@@ -4,12 +4,12 @@ import (
 	"ServerManagement/utils"
 	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -56,20 +56,31 @@ var (
 )
 
 func main() {
-	exe, err := os.Executable()
-	if err != nil {
-		log.Fatal(err)
-	}
-	dir := filepath.Dir(exe)
+	// ----- CLI flags -----
+	configPath := flag.String("config", "", "Path to configuration file")
+	flag.StringVar(configPath, "c", "", "Path to configuration file (shorthand)")
+	help := flag.Bool("help", false, "Show help")
+	flag.BoolVar(help, "h", false, "Show help (shorthand)")
+	flag.Parse()
 
-	cfg := loadConfig(filepath.Join(dir, "checkDockerImages.yaml"))
+	if *help {
+		flag.Usage()
+		os.Exit(0)
+	}
+
+	if *configPath == "" {
+		log.Fatal("No configuration file passed! Use -c or --config")
+		os.Exit(1)
+	}
+
+	cfg := loadConfig(*configPath)
 	if cfg == nil {
-		log.Fatalf("Failed to load config: %v", err)
+		log.Fatalf("Failed to load config, aborting")
 		return
 	}
 
 	repos := cfg.Images
-	date := time.Now().Format("2006-01-02 15:04")
+	date = time.Now().Format("2006-01-02 15:04")
 	fmt.Printf("%s: Checking the following repos for newer versions:\n%s", date, lo.Reduce(repos, func(agg string, item *ImageConfig, _ int) string {
 		return agg + "  " + item.Name + "\n"
 	}, ""))
