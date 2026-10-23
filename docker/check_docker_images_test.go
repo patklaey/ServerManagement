@@ -2,6 +2,7 @@ package main
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -87,5 +88,93 @@ func TestIsValidVersion(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("isValidVersion(%q) = %v, want %v", tt.input, got, tt.want)
 		}
+	}
+}
+
+func TestCanonicalLocalRepo(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"wordpress", "patklaey/wordpress"},
+		{"library/wordpress", "patklaey/wordpress"},
+		{"nginx", "patklaey/nginx"},
+		{"library/nginx", "patklaey/nginx"},
+		{"owncloud/server", "owncloud/server"},
+		{"library/busybox", "busybox"},
+	}
+
+	for _, tt := range tests {
+		got := canonicalLocalRepo(tt.input)
+		if got != tt.want {
+			t.Errorf("canonicalLocalRepo(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestHandleSameTagSameDigestDoesNotAlert(t *testing.T) {
+	mailMessage.Reset()
+	defer mailMessage.Reset()
+
+	repo := &ImageConfig{Name: "library/nginx", AlertOnDigestDiff: true, UpgradeOnDigestDiff: true}
+	handleSameTag(repo, "1.2.3", "sha256:same", "sha256:same")
+
+	if mailMessage.Len() != 0 {
+		t.Errorf("expected no mail message for matching digests, got %q", mailMessage.String())
+	}
+}
+
+func TestHandleSameTagDigestDiffAlertsWhenConfigured(t *testing.T) {
+	mailMessage.Reset()
+	defer mailMessage.Reset()
+
+	repo := &ImageConfig{Name: "library/nginx", AlertOnDigestDiff: true}
+	handleSameTag(repo, "1.2.3", "sha256:old", "sha256:new")
+
+	msg := mailMessage.String()
+	if !strings.Contains(msg, "library/nginx") || !strings.Contains(msg, "sha256:old") || !strings.Contains(msg, "sha256:new") {
+		t.Errorf("expected mail message to mention repo and both digests, got %q", msg)
+	}
+}
+
+func TestHandleSameTagDigestDiffWithoutAlertOrUpgradeIsSilent(t *testing.T) {
+	mailMessage.Reset()
+	defer mailMessage.Reset()
+
+	repo := &ImageConfig{Name: "library/nginx"}
+	handleSameTag(repo, "1.2.3", "sha256:old", "sha256:new")
+
+	if mailMessage.Len() != 0 {
+		t.Errorf("expected no mail message when digest checking is not configured, got %q", mailMessage.String())
+	}
+}
+
+func TestHandleSameTagDigestDiffRunsUpgradeScript(t *testing.T) {
+	mailMessage.Reset()
+	defer mailMessage.Reset()
+
+	repo := &ImageConfig{
+		Name:                "library/nginx",
+		UpgradeOnDigestDiff: true,
+		UpgradeScript:       "echo rebuilding fromVersionNumber toVersionNumber",
+	}
+	handleSameTag(repo, "1.2.3", "sha256:old", "sha256:new")
+
+	msg := mailMessage.String()
+	if !strings.Contains(msg, "Successfully upgraded library/nginx from 1.2.3 to 1.2.3") {
+		t.Errorf("expected mail message to record the rebuild as an upgrade, got %q", msg)
+	}
+}
+
+func TestRunUpgradeScriptRecordsFailure(t *testing.T) {
+	mailMessage.Reset()
+	defer mailMessage.Reset()
+
+	repo := &ImageConfig{Name: "library/nginx", UpgradeScript: "exit 1"}
+	runUpgradeScript(repo, "1.2.3", "1.2.4")
+
+	msg := mailMessage.String()
+	if !strings.Contains(msg, "Error occurred while upgrading library/nginx") {
+		t.Errorf("expected mail message to record the failure, got %q", msg)
 	}
 }

@@ -30,10 +30,12 @@ type Config struct {
 	MailConfigPath string         `yaml:"mailConfigPath"`
 }
 type ImageConfig struct {
-	Name               string `yaml:"name"`
-	AlertOnPatchDiff   bool   `yaml:"alertOnPatchDiff"`
-	UpgradeOnPatchDiff bool   `yaml:"upgradeOnPatchDiff"`
-	UpgradeScript      string `yaml:"upgradeScript,omitempty"`
+	Name                string `yaml:"name"`
+	AlertOnPatchDiff    bool   `yaml:"alertOnPatchDiff"`
+	UpgradeOnPatchDiff  bool   `yaml:"upgradeOnPatchDiff"`
+	AlertOnDigestDiff   bool   `yaml:"alertOnDigestDiff"`
+	UpgradeOnDigestDiff bool   `yaml:"upgradeOnDigestDiff"`
+	UpgradeScript       string `yaml:"upgradeScript,omitempty"`
 }
 
 type Image struct {
@@ -43,6 +45,7 @@ type Image struct {
 type Result struct {
 	Name   string   `json:"name"`
 	Images []*Image `json:"images"`
+	Digest string   `json:"digest"`
 }
 
 type DockerTagResponse struct {
@@ -87,7 +90,7 @@ func main() {
 
 	for _, repo := range repos {
 		current := getCurrentVersion(repo.Name)
-		latest := getLatestVersion(repo.Name)
+		latest, latestDigest := getLatestVersion(repo.Name)
 
 		if current == "" || latest == "" {
 			fmt.Printf("%s: %s either current or latest version not defined\n", date, repo.Name)
@@ -95,32 +98,31 @@ func main() {
 		}
 
 		if current == latest {
-			fmt.Printf("%s: %s has latest version installed (%s)\n", date, repo.Name, current)
+			if !repo.AlertOnDigestDiff && !repo.UpgradeOnDigestDiff {
+				fmt.Printf("%s: %s has latest version installed (%s)\n", date, repo.Name, current)
+				continue
+			}
+
+			if latestDigest == "" {
+				fmt.Printf("%s: %s: could not determine remote digest for %s, skipping digest check\n", date, repo.Name, current)
+				continue
+			}
+
+			currentDigest := getCurrentDigest(repo.Name, current)
+			if currentDigest == "" {
+				fmt.Printf("%s: %s: could not determine local digest for %s, skipping digest check\n", date, repo.Name, current)
+				continue
+			}
+
+			handleSameTag(repo, current, currentDigest, latestDigest)
 			continue
 		}
 
 		if isPatchDiffOnly(current, latest) {
 			if repo.UpgradeOnPatchDiff && repo.UpgradeScript != "" {
-				upgradeCmd := strings.ReplaceAll(repo.UpgradeScript, "fromVersionNumber", current)
-				upgradeCmd = strings.ReplaceAll(upgradeCmd, "toVersionNumber", latest)
-
-				fmt.Printf("%s: %s has a newer version available (%s) than currently installed (%s). Upgrading using script: %s\n",
-					date, repo.Name, latest, current, upgradeCmd)
-
-				cmd := exec.Command("bash", "-c", upgradeCmd)
-				output, err := cmd.CombinedOutput()
-				messageForMail := ""
-				if err != nil {
-					messageForMail = fmt.Sprintf("%s: Error occurred while upgrading %s: %v\n", date, repo.Name, err)
-					mailMessage.WriteString(messageForMail)
-					fmt.Printf("%s", messageForMail)
-					fmt.Printf("Output: %s\n", string(output))
-				} else {
-					messageForMail = fmt.Sprintf("%s: Successfully upgraded %s from %s to %s\n", date, repo.Name, current, latest)
-					mailMessage.WriteString(messageForMail)
-					fmt.Printf("%s", messageForMail)
-					fmt.Printf("Output: %s\n", string(output))
-				}
+				fmt.Printf("%s: %s has a newer version available (%s) than currently installed (%s).\n",
+					date, repo.Name, latest, current)
+				runUpgradeScript(repo, current, latest)
 			} else if repo.AlertOnPatchDiff {
 				addToAlertMessage(repo.Name, current, latest)
 			} else {
@@ -162,6 +164,57 @@ func addToAlertMessage(repoName, current, latest string) {
 	mailMessage.WriteString(msg)
 }
 
+// handleSameTag is called when the locally installed tag already matches the
+// latest tag on the registry, and digest checking is enabled and the digests
+// of both images are known. Some images get rebuilt under the same tag (e.g.
+// a base-image CVE patch), so the underlying digest can still have changed
+// even though the version string did not.
+func handleSameTag(repo *ImageConfig, tag, currentDigest, latestDigest string) {
+	if currentDigest == latestDigest {
+		fmt.Printf("%s: %s has latest version installed (%s)\n", date, repo.Name, tag)
+		return
+	}
+
+	if repo.UpgradeOnDigestDiff && repo.UpgradeScript != "" {
+		fmt.Printf("%s: %s has a rebuilt image for tag %s (local digest %s, remote digest %s).\n",
+			date, repo.Name, tag, currentDigest, latestDigest)
+		runUpgradeScript(repo, tag, tag)
+		return
+	}
+
+	if repo.AlertOnDigestDiff {
+		msg := fmt.Sprintf(
+			"%s has a rebuilt image for tag %s (local digest %s, remote digest %s)\n",
+			repo.Name, tag, currentDigest, latestDigest,
+		)
+		fmt.Printf("%s: %s", date, msg)
+		mailMessage.WriteString(msg)
+	}
+}
+
+// runUpgradeScript substitutes from/to into the configured upgrade script and
+// runs it, recording the outcome in mailMessage. from and to are equal for a
+// digest-only rebuild of the same tag.
+func runUpgradeScript(repo *ImageConfig, from, to string) {
+	upgradeCmd := strings.ReplaceAll(repo.UpgradeScript, "fromVersionNumber", from)
+	upgradeCmd = strings.ReplaceAll(upgradeCmd, "toVersionNumber", to)
+
+	fmt.Printf("%s: %s upgrading using script: %s\n", date, repo.Name, upgradeCmd)
+
+	cmd := exec.Command("bash", "-c", upgradeCmd)
+	output, err := cmd.CombinedOutput()
+
+	var messageForMail string
+	if err != nil {
+		messageForMail = fmt.Sprintf("%s: Error occurred while upgrading %s: %v\n", date, repo.Name, err)
+	} else {
+		messageForMail = fmt.Sprintf("%s: Successfully upgraded %s from %s to %s\n", date, repo.Name, from, to)
+	}
+	mailMessage.WriteString(messageForMail)
+	fmt.Print(messageForMail)
+	fmt.Printf("Output: %s\n", string(output))
+}
+
 func isPatchDiffOnly(current, latest string) bool {
 	c := parseVersion(current)
 	l := parseVersion(latest)
@@ -193,15 +246,23 @@ func parseVersion(v string) version {
 	}
 }
 
-func getCurrentVersion(repo string) string {
+// canonicalLocalRepo maps a registry repo name to the name under which the
+// image is tagged locally, for the few repos we build and tag ourselves.
+func canonicalLocalRepo(repo string) string {
 	repo = strings.TrimPrefix(repo, "library/")
 
 	switch repo {
 	case "wordpress":
-		repo = "patklaey/wordpress"
+		return "patklaey/wordpress"
 	case "nginx":
-		repo = "patklaey/nginx"
+		return "patklaey/nginx"
 	}
+
+	return repo
+}
+
+func getCurrentVersion(repo string) string {
+	repo = canonicalLocalRepo(repo)
 
 	cmd := exec.Command(
 		"docker", "images", repo,
@@ -223,7 +284,36 @@ func getCurrentVersion(repo string) string {
 	return ""
 }
 
-func getLatestVersion(repo string) string {
+// getCurrentDigest returns the locally recorded manifest digest (RepoDigest)
+// for repo:tag, e.g. "sha256:...". It returns "" if the image isn't present
+// locally or has no recorded digest (e.g. it was built locally rather than
+// pulled).
+func getCurrentDigest(repo, tag string) string {
+	repo = canonicalLocalRepo(repo)
+
+	cmd := exec.Command(
+		"docker", "images", repo+":"+tag,
+		"--digests", "--format", "{{.Digest}}",
+	)
+
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+
+	digest := strings.TrimSpace(string(out))
+	if digest == "<none>" {
+		return ""
+	}
+
+	return digest
+}
+
+// getLatestVersion returns the highest valid semantic version tag available
+// for repo that has an ARM image, along with that tag's manifest digest (as
+// reported by the registry), so callers can detect a same-tag rebuild
+// without a second request.
+func getLatestVersion(repo string) (string, string) {
 	url := fmt.Sprintf(
 		"https://registry.hub.docker.com/v2/repositories/%s/tags?page_size=%d",
 		repo, pageSize,
@@ -231,22 +321,25 @@ func getLatestVersion(repo string) string {
 
 	client := &http.Client{}
 	var versions []string
+	digestByVersion := make(map[string]string)
 
 	for url != "" {
 		resp, err := client.Get(url)
 		if err != nil {
-			return ""
+			return "", ""
 		}
-		defer resp.Body.Close()
 
 		var payload DockerTagResponse
-		if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-			return ""
+		err = json.NewDecoder(resp.Body).Decode(&payload)
+		resp.Body.Close()
+		if err != nil {
+			return "", ""
 		}
 
 		for _, r := range payload.Results {
 			if isValidVersion(r.Name) && hasARMImage(r.Images) {
 				versions = append(versions, r.Name)
+				digestByVersion[r.Name] = r.Digest
 			}
 		}
 
@@ -256,9 +349,11 @@ func getLatestVersion(repo string) string {
 	versions = sortSematic(versions)
 
 	if len(versions) == 0 {
-		return ""
+		return "", ""
 	}
-	return versions[0]
+
+	latest := versions[0]
+	return latest, digestByVersion[latest]
 }
 
 func isValidVersion(v string) bool {
