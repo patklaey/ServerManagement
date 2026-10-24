@@ -370,19 +370,6 @@ func hasARMImage(images []*Image) bool {
 	return false
 }
 
-func compareVersion(a, b string) int {
-	va := parseVersion(a)
-	vb := parseVersion(b)
-
-	if va.major != vb.major {
-		return va.major - vb.major
-	}
-	if va.minor != vb.minor {
-		return va.minor - vb.minor
-	}
-	return va.patch - vb.patch
-}
-
 func sortSematic(versions []string) []string {
 	sort.Slice(versions, func(i, j int) bool {
 		a := parseVersion(versions[i])
