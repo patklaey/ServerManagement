@@ -171,7 +171,7 @@ func addToAlertMessage(repoName, current, latest string) {
 // even though the version string did not.
 func handleSameTag(repo *ImageConfig, tag, currentDigest, latestDigest string) {
 	if currentDigest == latestDigest {
-		fmt.Printf("%s: %s has latest version installed (%s)\n", date, repo.Name, tag)
+		fmt.Printf("%s: %s has latest tag and checksum installed (%s)\n", date, repo.Name, tag)
 		return
 	}
 
