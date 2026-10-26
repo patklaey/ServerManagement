@@ -3,6 +3,7 @@ package main
 import (
 	"ServerManagement/utils"
 	"bytes"
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -18,6 +19,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/moby/moby/client"
 	"github.com/samber/lo"
 )
 
@@ -89,7 +91,11 @@ func main() {
 	}, ""))
 
 	for _, repo := range repos {
-		current := getCurrentVersion(repo.Name)
+		current, currentDigest, err := getLocalImage(repo.Name)
+		if err != nil {
+			fmt.Printf("%s: %s: %v\n", date, repo.Name, err)
+			continue
+		}
 		latest, latestDigest := getLatestVersion(repo.Name)
 
 		if current == "" || latest == "" {
@@ -103,14 +109,8 @@ func main() {
 				continue
 			}
 
-			if latestDigest == "" {
-				fmt.Printf("%s: %s: could not determine remote digest for %s, skipping digest check\n", date, repo.Name, current)
-				continue
-			}
-
-			currentDigest := getCurrentDigest(repo.Name, current)
-			if currentDigest == "" {
-				fmt.Printf("%s: %s: could not determine local digest for %s, skipping digest check\n", date, repo.Name, current)
+			if currentDigest == "" || latestDigest == "" {
+				fmt.Printf("%s: %s: could not determine digests for %s, skipping digest check\n", date, repo.Name, current)
 				continue
 			}
 
@@ -261,52 +261,55 @@ func canonicalLocalRepo(repo string) string {
 	return repo
 }
 
-func getCurrentVersion(repo string) string {
+// getLocalImage returns the non-"latest" tag and manifest digest that the
+// local Docker daemon has recorded for repo, read via the Engine API
+// (not the `docker images` CLI: filtering it by a repo:tag reference is
+// known to report the digest as "<none>" even when the daemon has it,
+// see https://github.com/moby/moby/issues/35270).
+// digest is "" if the matching image has no recorded RepoDigest, e.g. it
+// was built locally rather than pulled.
+func getLocalImage(repo string) (tag, digest string, err error) {
 	repo = canonicalLocalRepo(repo)
 
-	cmd := exec.Command(
-		"docker", "images", repo,
-		"--format", "{{.Tag}}",
-	)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
-	out, err := cmd.Output()
+	cli, err := client.New(client.FromEnv)
 	if err != nil {
-		return ""
+		return "", "", fmt.Errorf("connecting to docker daemon: %w", err)
+	}
+	defer cli.Close()
+
+	result, err := cli.ImageList(ctx, client.ImageListOptions{
+		Filters: client.Filters{}.Add("reference", repo),
+	})
+	if err != nil {
+		return "", "", fmt.Errorf("listing local images for %s: %w", repo, err)
 	}
 
-	lines := strings.Split(string(out), "\n")
-	for _, l := range lines {
-		if l != "" && l != "latest" {
-			return strings.TrimSpace(l)
+	for _, img := range result.Items {
+		for _, repoTag := range img.RepoTags {
+			t, ok := strings.CutPrefix(repoTag, repo+":")
+			if !ok || t == "latest" {
+				continue
+			}
+			return t, firstDigest(img.RepoDigests, repo), nil
 		}
 	}
 
-	return ""
+	return "", "", nil
 }
 
-// getCurrentDigest returns the locally recorded manifest digest (RepoDigest)
-// for repo:tag, e.g. "sha256:...". It returns "" if the image isn't present
-// locally or has no recorded digest (e.g. it was built locally rather than
-// pulled).
-func getCurrentDigest(repo, tag string) string {
-	repo = canonicalLocalRepo(repo)
-
-	cmd := exec.Command(
-		"docker", "images", repo+":"+tag,
-		"--digests", "--format", "{{.Digest}}",
-	)
-
-	out, err := cmd.Output()
-	if err != nil {
-		return ""
+// firstDigest returns the digest portion (e.g. "sha256:...") of the first
+// entry in repoDigests that belongs to repo. RepoDigests entries have the
+// form "repo@sha256:...".
+func firstDigest(repoDigests []string, repo string) string {
+	for _, rd := range repoDigests {
+		if d, ok := strings.CutPrefix(rd, repo+"@"); ok {
+			return d
+		}
 	}
-
-	digest := strings.TrimSpace(string(out))
-	if digest == "<none>" {
-		return ""
-	}
-
-	return digest
+	return ""
 }
 
 // getLatestVersion returns the highest valid semantic version tag available
