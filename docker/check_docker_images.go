@@ -4,11 +4,9 @@ import (
 	"ServerManagement/utils"
 	"bytes"
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"os/exec"
 	"regexp"
@@ -23,36 +21,20 @@ import (
 	"github.com/samber/lo"
 )
 
-const (
-	pageSize = 200
-)
-
 type Config struct {
 	Images         []*ImageConfig `yaml:"images"`
 	MailConfigPath string         `yaml:"mailConfigPath"`
 }
 type ImageConfig struct {
-	Name                string `yaml:"name"`
+	Name string `yaml:"name"`
+	// Registry selects which registry Name is looked up on: "dockerhub"
+	// (the default, if left empty) or "gcr". See registryClientFor.
+	Registry            string `yaml:"registry,omitempty"`
 	AlertOnPatchDiff    bool   `yaml:"alertOnPatchDiff"`
 	UpgradeOnPatchDiff  bool   `yaml:"upgradeOnPatchDiff"`
 	AlertOnDigestDiff   bool   `yaml:"alertOnDigestDiff"`
 	UpgradeOnDigestDiff bool   `yaml:"upgradeOnDigestDiff"`
 	UpgradeScript       string `yaml:"upgradeScript,omitempty"`
-}
-
-type Image struct {
-	Architecture string `json:"architecture"`
-}
-
-type Result struct {
-	Name   string   `json:"name"`
-	Images []*Image `json:"images"`
-	Digest string   `json:"digest"`
-}
-
-type DockerTagResponse struct {
-	Next    string    `json:"next"`
-	Results []*Result `json:"results"`
 }
 
 var (
@@ -96,7 +78,13 @@ func main() {
 			fmt.Printf("%s: %s: %v\n", date, repo.Name, err)
 			continue
 		}
-		latest, latestDigest := getLatestVersion(repo.Name)
+
+		registry, err := registryClientFor(repo.Registry)
+		if err != nil {
+			fmt.Printf("%s: %s: %v\n", date, repo.Name, err)
+			continue
+		}
+		latest, latestDigest := registry.latestVersion(repo.Name)
 
 		if current == "" || latest == "" {
 			fmt.Printf("%s: %s either current or latest version not defined\n", date, repo.Name)
@@ -312,65 +300,9 @@ func firstDigest(repoDigests []string, repo string) string {
 	return ""
 }
 
-// getLatestVersion returns the highest valid semantic version tag available
-// for repo that has an ARM image, along with that tag's manifest digest (as
-// reported by the registry), so callers can detect a same-tag rebuild
-// without a second request.
-func getLatestVersion(repo string) (string, string) {
-	url := fmt.Sprintf(
-		"https://registry.hub.docker.com/v2/repositories/%s/tags?page_size=%d",
-		repo, pageSize,
-	)
-
-	client := &http.Client{}
-	var versions []string
-	digestByVersion := make(map[string]string)
-
-	for url != "" {
-		resp, err := client.Get(url)
-		if err != nil {
-			return "", ""
-		}
-
-		var payload DockerTagResponse
-		err = json.NewDecoder(resp.Body).Decode(&payload)
-		resp.Body.Close()
-		if err != nil {
-			return "", ""
-		}
-
-		for _, r := range payload.Results {
-			if isValidVersion(r.Name) && hasARMImage(r.Images) {
-				versions = append(versions, r.Name)
-				digestByVersion[r.Name] = r.Digest
-			}
-		}
-
-		url = payload.Next
-	}
-
-	versions = sortSematic(versions)
-
-	if len(versions) == 0 {
-		return "", ""
-	}
-
-	latest := versions[0]
-	return latest, digestByVersion[latest]
-}
-
 func isValidVersion(v string) bool {
 	re := regexp.MustCompile(`^v?\d+\.\d+\.\d+$`)
 	return re.MatchString(v)
-}
-
-func hasARMImage(images []*Image) bool {
-	for _, img := range images {
-		if strings.Contains(img.Architecture, "arm") {
-			return true
-		}
-	}
-	return false
 }
 
 func sortSematic(versions []string) []string {
