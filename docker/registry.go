@@ -65,7 +65,13 @@ func (c v2RegistryClient) latestVersion(repo string) (string, string) {
 		path = "library/" + path
 	}
 
-	tags, err := fetchTags(host, path)
+	// Shared across every request below: tags/list and each candidate
+	// tag's manifest fetch all use the same repository:pull scope, so the
+	// token obtained for the first request can be reused for the rest
+	// instead of repeating the challenge+token round trip each time.
+	auth := &bearerTokenCache{}
+
+	tags, err := fetchTags(host, path, auth)
 	if err != nil {
 		fmt.Printf("%s: %s: fetching tags: %v\n", date, repo, err)
 		return "", ""
@@ -80,7 +86,7 @@ func (c v2RegistryClient) latestVersion(repo string) (string, string) {
 	versions = sortSematic(versions)
 
 	for _, tag := range versions {
-		info, err := fetchManifestInfo(host, path, tag)
+		info, err := fetchManifestInfo(host, path, tag, auth)
 		if err != nil {
 			fmt.Printf("%s: %s: fetching manifest for %s: %v\n", date, repo, tag, err)
 			continue
@@ -94,10 +100,10 @@ func (c v2RegistryClient) latestVersion(repo string) (string, string) {
 }
 
 // fetchTags returns the tags reported by GET /v2/<path>/tags/list on host.
-func fetchTags(host, path string) ([]string, error) {
+func fetchTags(host, path string, auth *bearerTokenCache) ([]string, error) {
 	tagsURL := fmt.Sprintf("https://%s/v2/%s/tags/list", host, path)
 
-	resp, err := doRegistryGet(tagsURL)
+	resp, err := doRegistryGet(tagsURL, auth)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +135,7 @@ type manifestInfo struct {
 
 // fetchManifestInfo requests tag's manifest from host, accepting both
 // manifest lists/OCI indexes and single-platform manifests.
-func fetchManifestInfo(host, path, tag string) (manifestInfo, error) {
+func fetchManifestInfo(host, path, tag string, auth *bearerTokenCache) (manifestInfo, error) {
 	manifestURL := fmt.Sprintf("https://%s/v2/%s/manifests/%s", host, path, tag)
 
 	req, err := http.NewRequest(http.MethodGet, manifestURL, nil)
@@ -143,7 +149,7 @@ func fetchManifestInfo(host, path, tag string) (manifestInfo, error) {
 		"application/vnd.docker.distribution.manifest.v2+json",
 	}, ", "))
 
-	resp, err := doRegistryRequest(req)
+	resp, err := auth.do(req)
 	if err != nil {
 		return manifestInfo{}, err
 	}
@@ -191,20 +197,33 @@ func hasARMPlatform(platforms []string) bool {
 
 var registryHTTPClient = &http.Client{Timeout: 15 * time.Second}
 
-// doRegistryGet is a GET against url with no extra headers; see
-// doRegistryRequest.
-func doRegistryGet(rawURL string) (*http.Response, error) {
-	req, err := http.NewRequest(http.MethodGet, rawURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	return doRegistryRequest(req)
+// bearerTokenCache remembers the bearer token obtained for one
+// challenge/scope across a sequence of requests (e.g. a tags/list call
+// followed by several manifest fetches while scanning for an ARM image),
+// so only the first request that needs auth pays for the challenge+token
+// round trip; the rest reuse the cached token directly. It is scoped to a
+// single registryClient.latestVersion call, not shared across repos: a
+// token's scope (repository:<path>:pull) is specific to one repo.
+type bearerTokenCache struct {
+	token string
 }
 
-// doRegistryRequest performs req against a Docker Registry v2 endpoint,
-// transparently handling the anonymous bearer-token challenge that v2
-// registries (Docker Hub, GCR, ...) require even for public images.
-func doRegistryRequest(req *http.Request) (*http.Response, error) {
+// do performs req against a Docker Registry v2 endpoint, transparently
+// handling the anonymous bearer-token challenge that v2 registries (Docker
+// Hub, GCR, ...) require even for public images, and caching the resulting
+// token for subsequent calls.
+func (c *bearerTokenCache) do(req *http.Request) (*http.Response, error) {
+	if c.token != "" {
+		resp, err := c.doWithToken(req, c.token)
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode != http.StatusUnauthorized {
+			return resp, nil
+		}
+		resp.Body.Close() // cached token stopped being valid; re-authenticate below
+	}
+
 	resp, err := registryHTTPClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -221,11 +240,25 @@ func doRegistryRequest(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, fmt.Errorf("authenticating: %w", err)
 	}
+	c.token = token
 
-	retry := req.Clone(req.Context())
-	retry.Header.Set("Authorization", "Bearer "+token)
+	return c.doWithToken(req, token)
+}
 
-	return registryHTTPClient.Do(retry)
+func (c *bearerTokenCache) doWithToken(req *http.Request, token string) (*http.Response, error) {
+	authed := req.Clone(req.Context())
+	authed.Header.Set("Authorization", "Bearer "+token)
+	return registryHTTPClient.Do(authed)
+}
+
+// doRegistryGet is a GET against rawURL with no extra headers; see
+// bearerTokenCache.do.
+func doRegistryGet(rawURL string, auth *bearerTokenCache) (*http.Response, error) {
+	req, err := http.NewRequest(http.MethodGet, rawURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	return auth.do(req)
 }
 
 var bearerChallengeParamRe = regexp.MustCompile(`(\w+)="([^"]*)"`)

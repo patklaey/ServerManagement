@@ -173,7 +173,7 @@ func TestDoRegistryGetHandlesAnonymousAuthChallenge(t *testing.T) {
 	defer tokenServer.Close()
 	tokenServerURL = tokenServer.URL
 
-	resp, err := doRegistryGet(registryServer.URL)
+	resp, err := doRegistryGet(registryServer.URL, &bearerTokenCache{})
 	if err != nil {
 		t.Fatalf("doRegistryGet returned unexpected error: %v", err)
 	}
@@ -181,5 +181,44 @@ func TestDoRegistryGetHandlesAnonymousAuthChallenge(t *testing.T) {
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("doRegistryGet() final status = %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+}
+
+func TestBearerTokenCacheReusesTokenAcrossRequests(t *testing.T) {
+	var tokenServerURL string
+	var tokenRequests int
+
+	registryServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if auth := r.Header.Get("Authorization"); auth != "Bearer test-token" {
+			w.Header().Set("Www-Authenticate", fmt.Sprintf(`Bearer realm="%s",service="gcr.io",scope="repository:my/repo:pull"`, tokenServerURL))
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.Write([]byte(`{"ok":true}`))
+	}))
+	defer registryServer.Close()
+
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tokenRequests++
+		w.Write([]byte(`{"token":"test-token"}`))
+	}))
+	defer tokenServer.Close()
+	tokenServerURL = tokenServer.URL
+
+	auth := &bearerTokenCache{}
+
+	for i := 0; i < 3; i++ {
+		resp, err := doRegistryGet(registryServer.URL, auth)
+		if err != nil {
+			t.Fatalf("request %d: doRegistryGet returned unexpected error: %v", i, err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("request %d: status = %d, want %d", i, resp.StatusCode, http.StatusOK)
+		}
+	}
+
+	if tokenRequests != 1 {
+		t.Errorf("token endpoint was hit %d times for 3 requests sharing a cache, want 1", tokenRequests)
 	}
 }
