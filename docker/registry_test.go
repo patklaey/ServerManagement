@@ -18,7 +18,7 @@ func TestRegistryClientFor(t *testing.T) {
 	}{
 		{"", "registry-1.docker.io", true, false},
 		{"dockerhub", "registry-1.docker.io", true, false},
-		{"gcr", "", false, false},
+		{"gcr", "", true, false},
 		{"quay", "", false, true},
 	}
 
