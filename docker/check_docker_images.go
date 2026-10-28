@@ -24,6 +24,12 @@ import (
 type Config struct {
 	Images         []*ImageConfig `yaml:"images"`
 	MailConfigPath string         `yaml:"mailConfigPath"`
+	// DigestStateFilePath is where the last-seen registry digest of each
+	// repo is recorded, for images with no local digest of their own (e.g.
+	// a custom image built FROM a base image rather than pulled). If
+	// empty, such images cannot be digest-checked across runs. See
+	// digestState.
+	DigestStateFilePath string `yaml:"digestStateFilePath,omitempty"`
 }
 type ImageConfig struct {
 	Name string `yaml:"name"`
@@ -67,6 +73,8 @@ func main() {
 	}
 
 	repos := cfg.Images
+	digests := loadDigestState(cfg.DigestStateFilePath)
+	digests.prune(digestTrackedRepos(repos))
 	date = time.Now().Format("2006-01-02 15:04")
 	fmt.Printf("%s: Checking the following repos for newer versions:\n%s", date, lo.Reduce(repos, func(agg string, item *ImageConfig, _ int) string {
 		return agg + "  " + item.Name + "\n"
@@ -97,12 +105,38 @@ func main() {
 				continue
 			}
 
-			if currentDigest == "" || latestDigest == "" {
-				fmt.Printf("%s: %s: could not determine digests for %s, skipping digest check\n", date, repo.Name, current)
+			if latestDigest == "" {
+				fmt.Printf("%s: %s: could not determine remote digest for %s, skipping digest check\n", date, repo.Name, current)
 				continue
 			}
 
-			handleSameTag(repo, current, currentDigest, latestDigest)
+			// currentDigest is "" for an image with no RepoDigest of its
+			// own, e.g. one built locally FROM repo.Name rather than
+			// pulled under that name. Fall back to the digest we recorded
+			// for this repo:tag the last time we checked, so a rebuild of
+			// the base image can still be detected across runs.
+			baselineDigest := currentDigest
+			trackingBaseline := false
+			if baselineDigest == "" {
+				if digests.path == "" {
+					fmt.Printf("%s: %s: built locally with no recorded digest, and no digestStateFilePath configured to track one, skipping digest check\n", date, repo.Name)
+					continue
+				}
+
+				trackingBaseline = true
+				baselineDigest = digests.get(repo.Name, current)
+				if baselineDigest == "" {
+					fmt.Printf("%s: %s: no digest recorded yet for %s, recording the current one as a baseline\n", date, repo.Name, current)
+					digests.set(repo.Name, current, latestDigest)
+					continue
+				}
+			}
+
+			handleSameTag(repo, current, baselineDigest, latestDigest)
+
+			if trackingBaseline {
+				digests.set(repo.Name, current, latestDigest)
+			}
 			continue
 		}
 

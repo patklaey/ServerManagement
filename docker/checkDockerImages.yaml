@@ -18,3 +18,9 @@ images:
     alertOnPatchDiff: true
     upgradeOnPatchDiff: false
 mailConfigPath: "/path/to/ServerManagement/utils/mail.yaml"
+# Tracks the last digest seen per repo:tag for images with no digest of
+# their own (e.g. nginx and wordpress above are custom-built FROM these
+# base images rather than pulled), so a same-tag rebuild of the base image
+# can still be detected across runs. Not needed for images that are pulled
+# directly, like owncloud/server.
+digestStateFilePath: "/path/to/ServerManagement/docker/digestState.json"
